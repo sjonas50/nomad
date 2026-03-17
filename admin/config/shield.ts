@@ -1,4 +1,10 @@
 import { defineConfig } from '@adonisjs/shield'
+import app from '@adonisjs/core/services/app'
+
+const scriptSrc: string[] = ["'self'", "'unsafe-inline'"]
+if (!app.inProduction) {
+  scriptSrc.push("'unsafe-eval'") // Required for Vite HMR in development
+}
 
 const shieldConfig = defineConfig({
   /**
@@ -6,8 +12,21 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csp: {
-    enabled: false,
-    directives: {},
+    enabled: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc,
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.bunny.net'],
+      fontSrc: ["'self'", 'https://fonts.bunny.net'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      workerSrc: ["'self'", 'blob:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'],
+      mediaSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'self'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
     reportOnly: false,
   },
 
@@ -16,8 +35,8 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csrf: {
-    enabled: false, // TODO: Enable CSRF protection
-    exceptRoutes: [],
+    enabled: true,
+    exceptRoutes: ['/api/health', '/__transmit/*'],
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },
@@ -35,7 +54,7 @@ const shieldConfig = defineConfig({
    * Force browser to always use HTTPS
    */
   hsts: {
-    enabled: false, // TODO: Enable HSTS in production
+    enabled: false,
     maxAge: '180 days',
   },
 

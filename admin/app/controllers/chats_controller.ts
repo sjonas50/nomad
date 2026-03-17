@@ -8,14 +8,19 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 
 @inject()
 export default class ChatsController {
-  constructor(private chatService: ChatService, private systemService: SystemService) {}
+  constructor(
+    private chatService: ChatService,
+    private systemService: SystemService
+  ) {}
 
   async inertia({ inertia, response }: HttpContext) {
-    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(SERVICE_NAMES.OLLAMA)
+    const aiAssistantInstalled = await this.systemService.checkServiceInstalled(
+      SERVICE_NAMES.OLLAMA
+    )
     if (!aiAssistantInstalled) {
-      return response.status(404).json({ error: 'AI Assistant service not installed' })
+      return response.redirect('/settings')
     }
-    
+
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
     return inertia.render('chat', {
       settings: {
@@ -29,7 +34,7 @@ export default class ChatsController {
   }
 
   async show({ params, response }: HttpContext) {
-    const sessionId = parseInt(params.id)
+    const sessionId = Number.parseInt(params.id)
     const session = await this.chatService.getSession(sessionId)
 
     if (!session) {
@@ -40,8 +45,8 @@ export default class ChatsController {
   }
 
   async store({ request, response }: HttpContext) {
+    const data = await request.validateUsing(createSessionSchema)
     try {
-      const data = await request.validateUsing(createSessionSchema)
       const session = await this.chatService.createSession(data.title, data.model)
       return response.status(201).json(session)
     } catch (error) {
@@ -64,7 +69,7 @@ export default class ChatsController {
 
   async update({ params, request, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = Number.parseInt(params.id)
       const data = await request.validateUsing(updateSessionSchema)
       const session = await this.chatService.updateSession(sessionId, data)
       return session
@@ -77,9 +82,9 @@ export default class ChatsController {
 
   async destroy({ params, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = Number.parseInt(params.id)
       await this.chatService.deleteSession(sessionId)
-      return response.status(204)
+      return response.noContent()
     } catch (error) {
       return response.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to delete session',
@@ -89,7 +94,7 @@ export default class ChatsController {
 
   async addMessage({ params, request, response }: HttpContext) {
     try {
-      const sessionId = parseInt(params.id)
+      const sessionId = Number.parseInt(params.id)
       const data = await request.validateUsing(addMessageSchema)
       const message = await this.chatService.addMessage(sessionId, data.role, data.content)
       return response.status(201).json(message)

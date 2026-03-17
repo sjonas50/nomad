@@ -58,7 +58,35 @@ export type WikipediaSpec = {
   options: WikipediaOption[]
 }
 
-export type ManifestType = 'zim_categories' | 'maps' | 'wikipedia'
+export type ManifestType = 'zim_categories' | 'maps' | 'wikipedia' | 'scenario_packs'
+
+export type ScenarioPackCategoryTierRef = {
+  category_slug: string
+  tier_slug: string
+}
+
+export type ScenarioPack = {
+  name: string
+  slug: string
+  icon: string
+  description: string
+  estimated_size_mb: number
+  category_tiers: ScenarioPackCategoryTierRef[]
+  map_collections: string[]
+  wikipedia_option: string | null
+  recommended_models: string[]
+}
+
+export type ScenarioPacksSpec = {
+  spec_version: string
+  packs: ScenarioPack[]
+}
+
+export type ScenarioPackWithStatus = ScenarioPack & {
+  install_status: 'not_installed' | 'partial' | 'installed'
+  installed_resources: number
+  total_resources: number
+}
 
 export type ResourceStatus = 'installed' | 'not_installed' | 'update_available'
 

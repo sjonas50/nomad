@@ -13,3 +13,20 @@ export const modelNameSchema = vine.compile(
     model: vine.string(),
   })
 )
+
+export const downloadJobIdSchema = vine.compile(
+  vine.object({
+    params: vine.object({
+      jobId: vine.string(),
+    }),
+  })
+)
+
+export const downloadPrioritySchema = vine.compile(
+  vine.object({
+    params: vine.object({
+      jobId: vine.string(),
+    }),
+    priority: vine.number().min(1).max(100),
+  })
+)

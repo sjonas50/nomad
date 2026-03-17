@@ -4,7 +4,7 @@ import axios from 'axios'
 import InstalledResource from '#models/installed_resource'
 import { RunDownloadJob } from '../jobs/run_download_job.js'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
-import { join } from 'path'
+import { join } from 'node:path'
 import type {
   ResourceUpdateCheckRequest,
   ResourceUpdateInfo,
@@ -45,9 +45,13 @@ export class CollectionUpdateService {
     }
 
     try {
-      const response = await axios.post<ResourceUpdateInfo[]>(`${nomadAPIURL}/api/v1/resources/check-updates`, requestBody, {
-        timeout: 15000,
-      })
+      const response = await axios.post<ResourceUpdateInfo[]>(
+        `${nomadAPIURL}/api/v1/resources/check-updates`,
+        requestBody,
+        {
+          timeout: 15000,
+        }
+      )
 
       logger.info(
         `[CollectionUpdateService] Update check complete: ${response.data.length} update(s) available`
@@ -68,8 +72,7 @@ export class CollectionUpdateService {
           error: `Nomad API returned status ${error.response.status}`,
         }
       }
-      const message =
-        error instanceof Error ? error.message : 'Unknown error contacting Nomad API'
+      const message = error instanceof Error ? error.message : 'Unknown error contacting Nomad API'
       logger.error(`[CollectionUpdateService] Failed to check for updates: ${message}`)
       return {
         updates: [],
@@ -101,8 +104,7 @@ export class CollectionUpdateService {
       url: update.download_url,
       filepath,
       timeout: 30000,
-      allowedMimeTypes:
-        update.resource_type === 'zim' ? ZIM_MIME_TYPES : PMTILES_MIME_TYPES,
+      allowedMimeTypes: update.resource_type === 'zim' ? ZIM_MIME_TYPES : PMTILES_MIME_TYPES,
       forceNew: true,
       filetype: update.resource_type,
       resourceMetadata: {
@@ -123,9 +125,9 @@ export class CollectionUpdateService {
     return { success: true, jobId: result.job.id }
   }
 
-  async applyAllUpdates(
-    updates: ResourceUpdateInfo[]
-  ): Promise<{ results: Array<{ resource_id: string; success: boolean; jobId?: string; error?: string }> }> {
+  async applyAllUpdates(updates: ResourceUpdateInfo[]): Promise<{
+    results: Array<{ resource_id: string; success: boolean; jobId?: string; error?: string }>
+  }> {
     const results: Array<{
       resource_id: string
       success: boolean

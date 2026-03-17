@@ -1,7 +1,7 @@
 import { formatBytes } from '~/lib/util'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CategoryWithStatus, SpecTier } from '../../types/collections'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import { IconChevronRight, IconCircleCheck } from '@tabler/icons-react'
 
 export interface CategoryCardProps {

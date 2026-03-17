@@ -41,3 +41,9 @@ admin/public/assets
 
 # Admin specific development files
 admin/storage
+
+# Local dev runtime data
+.local-dev/.env
+.local-dev/mysql/
+.local-dev/redis/
+.local-dev/storage/

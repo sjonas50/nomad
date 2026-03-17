@@ -19,6 +19,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   URL: Env.schema.string(),
   LOG_LEVEL: Env.schema.string(),
   INTERNET_STATUS_TEST_URL: Env.schema.string.optional(),
+  CORS_ORIGIN: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------
@@ -32,7 +33,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring session package
   |----------------------------------------------------------
   */
-  //SESSION_DRIVER: Env.schema.enum(['cookie', 'memory'] as const),
+  SESSION_DRIVER: Env.schema.enum.optional(['cookie', 'memory'] as const),
 
   /*
   |----------------------------------------------------------
@@ -53,6 +54,7 @@ export default await Env.create(new URL('../', import.meta.url), {
   */
   REDIS_HOST: Env.schema.string({ format: 'host' }),
   REDIS_PORT: Env.schema.number(),
+  REDIS_PASSWORD: Env.schema.string.optional(),
 
   /*
   |----------------------------------------------------------

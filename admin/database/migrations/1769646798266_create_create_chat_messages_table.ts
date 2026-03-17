@@ -6,7 +6,12 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.integer('session_id').unsigned().references('id').inTable('chat_sessions').onDelete('CASCADE')
+      table
+        .integer('session_id')
+        .unsigned()
+        .references('id')
+        .inTable('chat_sessions')
+        .onDelete('CASCADE')
       table.enum('role', ['system', 'user', 'assistant']).notNullable()
       table.text('content').notNullable()
       table.timestamp('created_at')

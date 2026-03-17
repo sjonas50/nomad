@@ -6,11 +6,11 @@ import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../constants/service_names'
 import { Link } from '@inertiajs/react'
 import { IconArrowLeft } from '@tabler/icons-react'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isChatOpen, setIsChatOpen] = useState(false)
-  const aiAssistantInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
+  const { isInstalled: aiAssistantInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
 
   return (
     <div className="min-h-screen flex flex-col">

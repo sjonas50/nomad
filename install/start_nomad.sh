@@ -17,9 +17,9 @@ echo ""
 for container in $containers; do
     echo "Starting container: $container"
     if docker start "$container"; then
-        echo "✓ Successfully started $container"
+        echo "+ Successfully started $container"
     else
-        echo "✗ Failed to start $container"
+        echo "x Failed to start $container"
     fi
     echo ""
 done

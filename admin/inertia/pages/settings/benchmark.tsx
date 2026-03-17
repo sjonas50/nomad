@@ -7,7 +7,6 @@ import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
 import StyledButton from '~/components/StyledButton'
 import InfoTooltip from '~/components/InfoTooltip'
-import BuilderTagSelector from '~/components/BuilderTagSelector'
 import {
   IconRobot,
   IconChartBar,
@@ -19,7 +18,7 @@ import {
 } from '@tabler/icons-react'
 import { useTransmit } from 'react-adonis-transmit'
 import { BenchmarkProgress, BenchmarkStatus } from '../../../types/benchmark'
-import BenchmarkResult from '#models/benchmark_result'
+import type BenchmarkResult from '#models/benchmark_result'
 import api from '~/lib/api'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import { SERVICE_NAMES } from '../../../constants/service_names'
@@ -37,13 +36,12 @@ export default function BenchmarkPage(props: {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { subscribe } = useTransmit()
   const queryClient = useQueryClient()
-  const aiInstalled = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
+  const { isInstalled: aiInstalled } = useServiceInstalledStatus(SERVICE_NAMES.OLLAMA)
   const [progress, setProgress] = useState<BenchmarkProgressWithID | null>(null)
   const [isRunning, setIsRunning] = useState(props.benchmark.status !== 'idle')
   const [showDetails, setShowDetails] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showAIRequiredAlert, setShowAIRequiredAlert] = useState(false)
-  const [shareAnonymously, setShareAnonymously] = useState(false)
   const [currentBuilderTag, setCurrentBuilderTag] = useState<string | null>(
     props.benchmark.latestResult?.builder_tag || null
   )
@@ -149,49 +147,6 @@ export default function BenchmarkPage(props: {
     },
   })
 
-  // Submit to repository mutation
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const submitResult = useMutation({
-    mutationFn: async ({ benchmarkId, anonymous }: { benchmarkId: string; anonymous: boolean }) => {
-      setSubmitError(null)
-
-      // First, save the current builder tag to the benchmark (don't refetch yet)
-      if (currentBuilderTag && !anonymous) {
-        await updateBuilderTag.mutateAsync({
-          benchmarkId,
-          builderTag: currentBuilderTag,
-          invalidate: false,
-        })
-      }
-
-      const res = await api.submitBenchmark(benchmarkId, anonymous)
-      if (!res || !res.success) {
-        throw new Error(res?.error || 'Failed to submit benchmark')
-      }
-      return res
-    },
-    onSuccess: () => {
-      refetchLatest()
-      queryClient.invalidateQueries({ queryKey: ['benchmark', 'history'] })
-    },
-    onError: (error: any) => {
-      // Check if this is a 409 Conflict error (already submitted)
-      if (error.status === 409) {
-        setSubmitError('A benchmark for this system with the same or higher score has already been submitted.')
-      } else {
-        setSubmitError(error.message)
-      }
-    },
-  })
-
-  // Check if the latest result is a full benchmark with AI data (eligible for sharing)
-  const canShareBenchmark =
-    latestResult &&
-    latestResult.benchmark_type === 'full' &&
-    latestResult.ai_tokens_per_second !== null &&
-    latestResult.ai_tokens_per_second > 0 &&
-    !latestResult.submitted_to_repository
-
   // Handle Full Benchmark click with pre-flight check
   const handleFullBenchmarkClick = () => {
     if (!aiInstalled) {
@@ -265,7 +220,7 @@ export default function BenchmarkPage(props: {
       {
         status: 'calculating_score',
         progress: 95,
-        message: 'Calculating NOMAD score...',
+        message: 'Calculating Attic score...',
         label: 'Calculating Score',
         duration: 2000,
       },
@@ -361,7 +316,7 @@ export default function BenchmarkPage(props: {
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-desert-green mb-2">System Benchmark</h1>
             <p className="text-desert-stone-dark">
-              Measure your server's performance and compare with the NOMAD community
+              Measure your server's performance
             </p>
           </div>
 
@@ -405,7 +360,7 @@ export default function BenchmarkPage(props: {
                     <Alert
                       type="warning"
                       title={`${aiAssistantName} Required`}
-                      message={`Full benchmark requires ${aiAssistantName} to be installed. Install it to measure your complete NOMAD capability and share results with the community.`}
+                      message={`Full benchmark requires ${aiAssistantName} to be installed. Install it to measure your complete system capability.`}
                       variant="bordered"
                       dismissible
                       onDismiss={() => setShowAIRequiredAlert(false)}
@@ -462,7 +417,7 @@ export default function BenchmarkPage(props: {
                       >
                         Install it
                       </Link>{' '}
-                      to run full benchmarks and share results with the community.
+                      to run full benchmarks.
                     </p>
                   )}
                 </div>
@@ -476,7 +431,7 @@ export default function BenchmarkPage(props: {
               <section className="mb-12">
                 <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
                   <div className="w-1 h-6 bg-desert-green" />
-                  NOMAD Score
+                  Attic Score
                 </h2>
 
                 <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
@@ -484,7 +439,7 @@ export default function BenchmarkPage(props: {
                     <div className="shrink-0">
                       <CircularGauge
                         value={latestResult.nomad_score}
-                        label="NOMAD Score"
+                        label="Attic Score"
                         size="lg"
                         variant="cpu"
                         subtext="out of 100"
@@ -498,98 +453,9 @@ export default function BenchmarkPage(props: {
                         {latestResult.nomad_score.toFixed(1)}
                       </div>
                       <p className="text-desert-stone-dark">
-                        Your NOMAD Score is a weighted composite of all benchmark results.
+                        Your Attic Score is a weighted composite of all benchmark results.
                       </p>
 
-                      {/* Share with Community - Only for full benchmarks with AI data */}
-                      {canShareBenchmark && (
-                        <div className="space-y-4 mt-6 pt-6 border-t border-desert-stone-light">
-                          <h3 className="font-semibold text-desert-green">Share with Community</h3>
-                          <p className="text-sm text-desert-stone-dark">
-                            Share your benchmark on the community leaderboard. Choose a Builder Tag
-                            to claim your spot, or share anonymously.
-                          </p>
-
-                          {/* Builder Tag Selector */}
-                          <div className="space-y-2">
-                            <label className="block text-sm font-medium text-desert-stone-dark">
-                              Your Builder Tag
-                            </label>
-                            <BuilderTagSelector
-                              value={currentBuilderTag}
-                              onChange={setCurrentBuilderTag}
-                              disabled={shareAnonymously || submitResult.isPending}
-                            />
-                          </div>
-
-                          {/* Anonymous checkbox */}
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={shareAnonymously}
-                              onChange={(e) => setShareAnonymously(e.target.checked)}
-                              disabled={submitResult.isPending}
-                              className="w-4 h-4 rounded border-desert-stone-light text-desert-green focus:ring-desert-green"
-                            />
-                            <span className="text-sm text-desert-stone-dark">
-                              Share anonymously (no Builder Tag shown on leaderboard)
-                            </span>
-                          </label>
-
-                          <StyledButton
-                            onClick={() =>
-                              submitResult.mutate({
-                                benchmarkId: latestResult.benchmark_id,
-                                anonymous: shareAnonymously,
-                              })
-                            }
-                            disabled={submitResult.isPending}
-                            icon="IconCloudUpload"
-                          >
-                            {submitResult.isPending ? 'Submitting...' : 'Share with Community'}
-                          </StyledButton>
-                          {submitError && (
-                            <Alert
-                              type="error"
-                              title="Submission Failed"
-                              message={submitError}
-                              variant="bordered"
-                              dismissible
-                              onDismiss={() => setSubmitError(null)}
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      {/* Show message for partial benchmarks */}
-                      {latestResult &&
-                        !latestResult.submitted_to_repository &&
-                        !canShareBenchmark && (
-                          <Alert
-                            type="info"
-                            title="Partial Benchmark"
-                            message={`This ${latestResult.benchmark_type} benchmark cannot be shared with the community. Run a Full Benchmark with ${aiAssistantName} installed to share your results.`}
-                            variant="bordered"
-                          />
-                        )}
-
-                      {latestResult.submitted_to_repository && (
-                        <Alert
-                          type="success"
-                          title="Shared with Community"
-                          message="Your benchmark has been submitted to the community leaderboard. Thanks for contributing!"
-                          variant="bordered"
-                        >
-                          <a
-                            href="https://benchmark.projectnomad.us"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-desert-green hover:underline mt-2 inline-block"
-                          >
-                            View the leaderboard →
-                          </a>
-                        </Alert>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -764,7 +630,7 @@ export default function BenchmarkPage(props: {
                         </div>
                       </div>
                       <div>
-                        <div className="text-desert-stone-dark">NOMAD Score</div>
+                        <div className="text-desert-stone-dark">Attic Score</div>
                         <div className="font-bold text-desert-green">
                           {latestResult.nomad_score.toFixed(1)}
                         </div>
@@ -860,20 +726,6 @@ export default function BenchmarkPage(props: {
                                 <span>{latestResult.ai_model_used}</span>
                               </div>
                             )}
-                            <div className="flex justify-between">
-                              <span className="text-desert-stone-dark">
-                                Submitted to Repository
-                              </span>
-                              <span>{latestResult.submitted_to_repository ? 'Yes' : 'No'}</span>
-                            </div>
-                            {latestResult.repository_id && (
-                              <div className="flex justify-between">
-                                <span className="text-desert-stone-dark">Repository ID</span>
-                                <span className="font-mono text-xs">
-                                  {latestResult.repository_id}
-                                </span>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -925,9 +777,6 @@ export default function BenchmarkPage(props: {
                                 <th className="text-left p-3 font-medium text-desert-stone-dark">
                                   Builder Tag
                                 </th>
-                                <th className="text-left p-3 font-medium text-desert-stone-dark">
-                                  Shared
-                                </th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-desert-stone-lighter">
@@ -953,13 +802,6 @@ export default function BenchmarkPage(props: {
                                   </td>
                                   <td className="p-3 font-mono text-xs">
                                     {result.builder_tag || '—'}
-                                  </td>
-                                  <td className="p-3">
-                                    {result.submitted_to_repository ? (
-                                      <span className="text-green-600">✓</span>
-                                    ) : (
-                                      <span className="text-desert-stone-dark">—</span>
-                                    )}
                                   </td>
                                 </tr>
                               ))}

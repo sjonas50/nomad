@@ -1,7 +1,7 @@
 import logger from '@adonisjs/core/services/logger'
-import { readFileSync, existsSync } from 'fs'
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
+import { readFileSync, existsSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import KVStore from '#models/kv_store'
 
 interface UpdateStatus {
@@ -40,7 +40,9 @@ export class SystemUpdateService {
       }
 
       await writeFile(SystemUpdateService.REQUEST_FILE, JSON.stringify(requestData, null, 2))
-      logger.info(`[SystemUpdateService]: System update requested (target tag: ${requestData.target_tag}) - sidecar will process shortly`)
+      logger.info(
+        `[SystemUpdateService]: System update requested (target tag: ${requestData.target_tag}) - sidecar will process shortly`
+      )
 
       return {
         success: true,

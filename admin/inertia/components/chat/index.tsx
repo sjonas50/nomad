@@ -168,6 +168,44 @@ export default function Chat({
     )
   }, [openModal, closeAllModals, deleteAllSessionsMutation])
 
+  const handleDeleteSession = useCallback(
+    (sessionId: string) => {
+      openModal(
+        <StyledModal
+          title="Delete Chat?"
+          onConfirm={async () => {
+            await api.deleteChatSession(sessionId)
+            queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+            if (activeSessionId === sessionId) {
+              setActiveSessionId(null)
+              setMessages([])
+            }
+            closeAllModals()
+          }}
+          onCancel={closeAllModals}
+          open={true}
+          confirmText="Delete"
+          cancelText="Cancel"
+          confirmVariant="danger"
+        >
+          <p className="text-gray-700">
+            Are you sure you want to delete this chat? This action cannot be undone.
+          </p>
+        </StyledModal>,
+        'confirm-delete-session-modal'
+      )
+    },
+    [openModal, closeAllModals, queryClient, activeSessionId]
+  )
+
+  const handleRenameSession = useCallback(
+    async (sessionId: string, title: string) => {
+      await api.updateChatSession(sessionId, { title })
+      queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+    },
+    [queryClient]
+  )
+
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
       // Cancel any ongoing suggestions fetch
@@ -295,11 +333,12 @@ export default function Chat({
           )
         } catch (error: any) {
           if (error?.name !== 'AbortError') {
+            const errorContent = error?.message || 'Sorry, there was an error processing your request. Please try again.'
             setMessages((prev) => {
               const hasAssistantMsg = prev.some((m) => m.id === assistantMsgId)
               if (hasAssistantMsg) {
                 return prev.map((m) =>
-                  m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+                  m.id === assistantMsgId ? { ...m, content: m.content || errorContent, isStreaming: false } : m
                 )
               }
               return [
@@ -307,7 +346,7 @@ export default function Chat({
                 {
                   id: assistantMsgId,
                   role: 'assistant',
-                  content: 'Sorry, there was an error processing your request. Please try again.',
+                  content: errorContent,
                   timestamp: new Date(),
                 },
               ]
@@ -355,6 +394,8 @@ export default function Chat({
         onSessionSelect={handleSessionSelect}
         onNewChat={handleNewChat}
         onClearHistory={handleClearHistory}
+        onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
         isInModal={isInModal}
       />
       <div className="flex-1 flex flex-col min-h-0">

@@ -69,6 +69,7 @@ export default function MapsManager(props: {
     try {
       await api.downloadMapCollection(record.slug)
       invalidateDownloads()
+      queryClient.invalidateQueries({ queryKey: [CURATED_COLLECTIONS_KEY] })
       addNotification({
         type: 'success',
         message: `Download for collection "${record.name}" has been queued.`,
@@ -91,11 +92,23 @@ export default function MapsManager(props: {
     }
   }
 
+  const deleteMapFileMutation = useMutation({
+    mutationFn: async (file: FileEntry) => api.deleteMapFile(file.name),
+    onSuccess: () => {
+      router.reload()
+      addNotification({ type: 'success', message: 'Map file deleted.' })
+    },
+    onError: () => {
+      addNotification({ type: 'error', message: 'Failed to delete map file.' })
+    },
+  })
+
   async function confirmDeleteFile(file: FileEntry) {
     openModal(
       <StyledModal
         title="Confirm Delete?"
         onConfirm={() => {
+          deleteMapFileMutation.mutate(file)
           closeAllModals()
         }}
         onCancel={closeAllModals}
@@ -150,7 +163,7 @@ export default function MapsManager(props: {
     openModal(
       <DownloadURLModal
         title="Download Map File"
-        suggestedURL="e.g. https://github.com/Crosstalk-Solutions/project-nomad-maps/raw/refs/heads/master/pmtiles/california.pmtiles"
+        suggestedURL="e.g. https://example.com/maps/california.pmtiles"
         onCancel={() => closeAllModals()}
         onPreflightSuccess={async (url) => {
           await downloadCustomFile(url)

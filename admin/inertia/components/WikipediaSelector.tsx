@@ -1,6 +1,6 @@
 import { formatBytes } from '~/lib/util'
 import { WikipediaOption, WikipediaCurrentSelection } from '../../types/downloads'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import { IconCheck, IconDownload, IconWorld } from '@tabler/icons-react'
 import StyledButton from './StyledButton'
 import LoadingSpinner from './LoadingSpinner'

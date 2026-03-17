@@ -12,7 +12,12 @@ export default class ServiceSeeder extends BaseSeeder {
   )
   private static DEFAULT_SERVICES: Omit<
     ModelAttributes<Service>,
-    'created_at' | 'updated_at' | 'metadata' | 'id' | 'available_update_version' | 'update_checked_at'
+    | 'created_at'
+    | 'updated_at'
+    | 'metadata'
+    | 'id'
+    | 'available_update_version'
+    | 'update_checked_at'
   >[] = [
     {
       service_name: SERVICE_NAMES.KIWIX,

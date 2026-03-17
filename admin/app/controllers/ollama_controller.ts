@@ -1,11 +1,16 @@
 import { ChatService } from '#services/chat_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import { SystemService } from '#services/system_service'
 import { modelNameSchema } from '#validators/download'
 import { chatSchema, getAvailableModelsSchema } from '#validators/ollama'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
-import { DEFAULT_QUERY_REWRITE_MODEL, RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
+import {
+  DEFAULT_QUERY_REWRITE_MODEL,
+  RAG_CONTEXT_LIMITS,
+  SYSTEM_PROMPTS,
+} from '../../constants/ollama.js'
 import logger from '@adonisjs/core/services/logger'
 import type { Message } from 'ollama'
 
@@ -14,8 +19,9 @@ export default class OllamaController {
   constructor(
     private chatService: ChatService,
     private ollamaService: OllamaService,
-    private ragService: RagService
-  ) { }
+    private ragService: RagService,
+    private systemService: SystemService
+  ) {}
 
   async availableModels({ request }: HttpContext) {
     const reqData = await request.validateUsing(getAvailableModelsSchema)
@@ -64,7 +70,9 @@ export default class OllamaController {
           0.3 // Minimum similarity score of 0.3
         )
 
-        logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
+        logger.debug(
+          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`
+        )
 
         // If relevant context is found, inject as a system message with adaptive limits
         if (relevantDocs.length > 0) {
@@ -88,7 +96,10 @@ export default class OllamaController {
           )
 
           const contextText = trimmedDocs
-            .map((doc, idx) => `[Context ${idx + 1}] (Relevance: ${(doc.score * 100).toFixed(1)}%)\n${doc.text}`)
+            .map(
+              (doc, idx) =>
+                `[Context ${idx + 1}] (Relevance: ${(doc.score * 100).toFixed(1)}%)\n${doc.text}`
+            )
             .join('\n\n')
 
           const systemMessage = {
@@ -106,7 +117,11 @@ export default class OllamaController {
       // Check if the model supports "thinking" capability for enhanced response generation
       // If gpt-oss model, it requires a text param for "think" https://docs.ollama.com/api/chat
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
-      const think: boolean | 'medium' = thinkingCapability ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+      const think: boolean | 'medium' = thinkingCapability
+        ? reqData.model.startsWith('gpt-oss')
+          ? 'medium'
+          : true
+        : false
 
       // Separate sessionId from the Ollama request payload — Ollama rejects unknown fields
       const { sessionId, ...ollamaRequest } = reqData
@@ -122,7 +137,9 @@ export default class OllamaController {
       }
 
       if (reqData.stream) {
-        logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
+        logger.debug(
+          `[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`
+        )
         // Headers already flushed above
         const stream = await this.ollamaService.chatStream({ ...ollamaRequest, think })
         let fullContent = ''
@@ -140,7 +157,9 @@ export default class OllamaController {
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
             this.chatService.generateTitle(sessionId, userContent, fullContent).catch((err) => {
-              logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
+              logger.error(
+                `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+              )
             })
           }
         }
@@ -154,16 +173,36 @@ export default class OllamaController {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
-          this.chatService.generateTitle(sessionId, userContent, result.message.content).catch((err) => {
-            logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
-          })
+          this.chatService
+            .generateTitle(sessionId, userContent, result.message.content)
+            .catch((err) => {
+              logger.error(
+                `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+              )
+            })
         }
       }
 
       return result
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+
+      // Detect OOM / runner killed errors and provide a helpful message
+      const isOOM =
+        errorMessage.includes('terminated') ||
+        errorMessage.includes('killed') ||
+        errorMessage.includes('out of memory')
+      const userMessage = isOOM
+        ? `The model "${reqData.model}" requires more memory than is available. Try a smaller model or a quantized variant.`
+        : errorMessage
+
+      logger.error(`[OllamaController] Chat error: ${errorMessage}`)
+
       if (reqData.stream) {
-        response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
+        response.response.write(
+          `data: ${JSON.stringify({ error: true, message: userMessage })}\n\n`
+        )
         response.response.end()
         return
       }
@@ -189,7 +228,11 @@ export default class OllamaController {
     }
   }
 
-  async installedModels({ }: HttpContext) {
+  async hardwareSummary({}: HttpContext) {
+    return await this.systemService.getHardwareSummary()
+  }
+
+  async installedModels({}: HttpContext) {
     return await this.ollamaService.getModels()
   }
 
@@ -200,7 +243,7 @@ export default class OllamaController {
   private getContextLimitsForModel(modelName: string): { maxResults: number; maxTokens: number } {
     // Extract parameter count from model name (e.g., "llama3.2:3b", "qwen2.5:1.5b", "gemma:7b")
     const sizeMatch = modelName.match(/(\d+\.?\d*)[bB]/)
-    const paramBillions = sizeMatch ? parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
+    const paramBillions = sizeMatch ? Number.parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
 
     for (const tier of RAG_CONTEXT_LIMITS) {
       if (paramBillions <= tier.maxParams) {
@@ -212,36 +255,39 @@ export default class OllamaController {
     return { maxResults: 5, maxTokens: 0 }
   }
 
-  private async rewriteQueryWithContext(
-    messages: Message[]
-  ): Promise<string | null> {
+  private async rewriteQueryWithContext(messages: Message[]): Promise<string | null> {
     try {
       // Get recent conversation history (last 6 messages for 3 turns)
       const recentMessages = messages.slice(-6)
 
       // Skip rewriting for short conversations. Rewriting adds latency with
       // little RAG benefit until there is enough context to matter.
-      const userMessages = recentMessages.filter(msg => msg.role === 'user')
+      const userMessages = recentMessages.filter((msg) => msg.role === 'user')
       if (userMessages.length <= 2) {
         return userMessages[userMessages.length - 1]?.content || null
       }
 
       const conversationContext = recentMessages
-        .map(msg => {
+        .map((msg) => {
           const role = msg.role === 'user' ? 'User' : 'Assistant'
           // Truncate assistant messages to first 200 chars to keep context manageable
-          const content = msg.role === 'assistant'
-            ? msg.content.slice(0, 200) + (msg.content.length > 200 ? '...' : '')
-            : msg.content
+          const content =
+            msg.role === 'assistant'
+              ? msg.content.slice(0, 200) + (msg.content.length > 200 ? '...' : '')
+              : msg.content
           return `${role}: "${content}"`
         })
         .join('\n')
 
       const installedModels = await this.ollamaService.getModels(true)
-      const rewriteModelAvailable = installedModels?.some(model => model.name === DEFAULT_QUERY_REWRITE_MODEL)
+      const rewriteModelAvailable = installedModels?.some(
+        (model) => model.name === DEFAULT_QUERY_REWRITE_MODEL
+      )
       if (!rewriteModelAvailable) {
-        logger.warn(`[RAG] Query rewrite model "${DEFAULT_QUERY_REWRITE_MODEL}" not available. Skipping query rewriting.`)
-        const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
+        logger.warn(
+          `[RAG] Query rewrite model "${DEFAULT_QUERY_REWRITE_MODEL}" not available. Skipping query rewriting.`
+        )
+        const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')
         return lastUserMessage?.content || null
       }
 
@@ -268,7 +314,7 @@ export default class OllamaController {
         `[RAG] Query rewriting failed: ${error instanceof Error ? error.message : error}`
       )
       // Fallback to last user message if rewriting fails
-      const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
+      const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')
       return lastUserMessage?.content || null
     }
   }

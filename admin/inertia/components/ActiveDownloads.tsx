@@ -16,8 +16,8 @@ const ActiveDownloads = ({ filetype, withHeader = false }: ActiveDownloadProps) 
       {withHeader && <StyledSectionHeader title="Active Downloads" className="mt-12 mb-4" />}
       <div className="space-y-4">
         {downloads && downloads.length > 0 ? (
-          downloads.map((download) => (
-            <div className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
+          downloads.map((download, idx) => (
+            <div key={download.url || idx} className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow">
               <HorizontalBarChart
                 items={[
                   {

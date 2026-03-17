@@ -2,10 +2,15 @@ import axios from 'axios'
 import vine from '@vinejs/vine'
 import logger from '@adonisjs/core/services/logger'
 import { DateTime } from 'luxon'
-import { join } from 'path'
+import { join } from 'node:path'
 import CollectionManifest from '#models/collection_manifest'
 import InstalledResource from '#models/installed_resource'
-import { zimCategoriesSpecSchema, mapsSpecSchema, wikipediaSpecSchema } from '#validators/curated_collections'
+import {
+  zimCategoriesSpecSchema,
+  mapsSpecSchema,
+  wikipediaSpecSchema,
+  scenarioPacksSpecSchema,
+} from '#validators/curated_collections'
 import {
   ensureDirectoryExists,
   listDirectoryContents,
@@ -20,18 +25,25 @@ import type {
   CollectionWithStatus,
   SpecResource,
   SpecTier,
+  ScenarioPacksSpec,
+  ScenarioPackWithStatus,
 } from '../../types/collections.js'
 
 const SPEC_URLS: Record<ManifestType, string> = {
-  zim_categories: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
+  zim_categories:
+    'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/kiwix-categories.json',
   maps: 'https://github.com/Crosstalk-Solutions/project-nomad/raw/refs/heads/main/collections/maps.json',
-  wikipedia: 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
+  wikipedia:
+    'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json',
+  scenario_packs:
+    'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/scenario-packs.json',
 }
 
 const VALIDATORS: Record<ManifestType, any> = {
   zim_categories: zimCategoriesSpecSchema,
   maps: mapsSpecSchema,
   wikipedia: wikipediaSpecSchema,
+  scenario_packs: scenarioPacksSpecSchema,
 }
 
 export class CollectionManifestService {
@@ -69,7 +81,10 @@ export class CollectionManifestService {
 
       return true
     } catch (error) {
-      logger.error(`[CollectionManifestService] Failed to fetch spec for ${type}:`, error?.message || error)
+      logger.error(
+        `[CollectionManifestService] Failed to fetch spec for ${type}:`,
+        error?.message || error
+      )
       return false
     }
   }
@@ -122,6 +137,59 @@ export class CollectionManifestService {
     })
   }
 
+  async getScenarioPacksWithStatus(): Promise<ScenarioPackWithStatus[]> {
+    const packsSpec = await this.getSpecWithFallback<ScenarioPacksSpec>('scenario_packs')
+    if (!packsSpec) return []
+
+    const zimSpec = await this.getCachedSpec<ZimCategoriesSpec>('zim_categories')
+    const mapsSpec = await this.getCachedSpec<MapsSpec>('maps')
+
+    const installedResources = await InstalledResource.all()
+    const installedIds = new Set(installedResources.map((r) => r.resource_id))
+
+    return packsSpec.packs.map((pack) => {
+      let totalResources = 0
+      let installedCount = 0
+
+      // Count ZIM tier resources
+      if (zimSpec) {
+        for (const tierRef of pack.category_tiers) {
+          const category = zimSpec.categories.find((c) => c.slug === tierRef.category_slug)
+          if (!category) continue
+          const tier = category.tiers.find((t) => t.slug === tierRef.tier_slug)
+          if (!tier) continue
+          const resolved = CollectionManifestService.resolveTierResources(tier, category.tiers)
+          totalResources += resolved.length
+          installedCount += resolved.filter((r) => installedIds.has(r.id)).length
+        }
+      }
+
+      // Count map collection resources
+      if (mapsSpec) {
+        for (const collSlug of pack.map_collections) {
+          const collection = mapsSpec.collections.find((c) => c.slug === collSlug)
+          if (!collection) continue
+          totalResources += collection.resources.length
+          installedCount += collection.resources.filter((r) => installedIds.has(r.id)).length
+        }
+      }
+
+      let install_status: 'not_installed' | 'partial' | 'installed' = 'not_installed'
+      if (totalResources > 0 && installedCount === totalResources) {
+        install_status = 'installed'
+      } else if (installedCount > 0) {
+        install_status = 'partial'
+      }
+
+      return {
+        ...pack,
+        install_status,
+        installed_resources: installedCount,
+        total_resources: totalResources,
+      }
+    })
+  }
+
   // ---- Tier resolution ----
 
   static resolveTierResources(tier: SpecTier, allTiers: SpecTier[]): SpecResource[] {
@@ -142,7 +210,9 @@ export class CollectionManifestService {
     if (tier.includesTier) {
       const included = allTiers.find((t) => t.slug === tier.includesTier)
       if (included) {
-        resources.push(...CollectionManifestService._resolveTierResourcesInner(included, allTiers, visited))
+        resources.push(
+          ...CollectionManifestService._resolveTierResourcesInner(included, allTiers, visited)
+        )
       }
     }
 
@@ -192,7 +262,7 @@ export class CollectionManifestService {
     let zimCount = 0
     let mapCount = 0
 
-    console.log("RECONCILING FILESYSTEM MANIFESTS...")
+    console.log('RECONCILING FILESYSTEM MANIFESTS...')
 
     // Reconcile ZIM files
     try {
@@ -311,7 +381,9 @@ export class CollectionManifestService {
       logger.error('[CollectionManifestService] Error reconciling map files:', error)
     }
 
-    logger.info(`[CollectionManifestService] Reconciled ${zimCount} ZIM files, ${mapCount} map files`)
+    logger.info(
+      `[CollectionManifestService] Reconciled ${zimCount} ZIM files, ${mapCount} map files`
+    )
     return { zim: zimCount, map: mapCount }
   }
 }

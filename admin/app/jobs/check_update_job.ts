@@ -29,9 +29,7 @@ export class CheckUpdateJob {
         )
       } else {
         await KVStore.setValue('system.updateAvailable', false)
-        logger.info(
-          `[CheckUpdateJob] System is up to date (${result.currentVersion})`
-        )
+        logger.info(`[CheckUpdateJob] System is up to date (${result.currentVersion})`)
       }
 
       return result
@@ -42,7 +40,7 @@ export class CheckUpdateJob {
   }
 
   static async scheduleNightly() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
     await queue.upsertJobScheduler(
@@ -61,15 +59,19 @@ export class CheckUpdateJob {
   }
 
   static async dispatch() {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
-    const job = await queue.add(this.key, {}, {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 60000 },
-      removeOnComplete: { count: 7 },
-      removeOnFail: { count: 5 },
-    })
+    const job = await queue.add(
+      this.key,
+      {},
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 60000 },
+        removeOnComplete: { count: 7 },
+        removeOnFail: { count: 5 },
+      }
+    )
 
     logger.info(`[CheckUpdateJob] Dispatched ad-hoc update check job ${job.id}`)
     return job

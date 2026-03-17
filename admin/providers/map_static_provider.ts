@@ -2,7 +2,7 @@ import MapsStaticMiddleware from '#middleware/maps_static_middleware'
 import logger from '@adonisjs/core/services/logger'
 import type { ApplicationService } from '@adonisjs/core/types'
 import { defineConfig } from '@adonisjs/static'
-import { join } from 'path'
+import { join } from 'node:path'
 
 /**
  * This is a bit of a hack to serve static files from the

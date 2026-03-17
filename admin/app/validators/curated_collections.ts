@@ -40,32 +40,60 @@ export const zimCategoriesSpecSchema = vine.object({
 
 export const mapsSpecSchema = vine.object({
   spec_version: vine.string(),
-  collections: vine.array(
-    vine.object({
-      slug: vine.string(),
-      name: vine.string(),
-      description: vine.string(),
-      icon: vine.string(),
-      language: vine.string().minLength(2).maxLength(5),
-      resources: vine.array(specResourceValidator).minLength(1),
-    })
-  ).minLength(1),
+  collections: vine
+    .array(
+      vine.object({
+        slug: vine.string(),
+        name: vine.string(),
+        description: vine.string(),
+        icon: vine.string(),
+        language: vine.string().minLength(2).maxLength(5),
+        resources: vine.array(specResourceValidator).minLength(1),
+      })
+    )
+    .minLength(1),
 })
 
 // ---- Wikipedia spec (versioned) ----
 
 export const wikipediaSpecSchema = vine.object({
   spec_version: vine.string(),
-  options: vine.array(
+  options: vine
+    .array(
+      vine.object({
+        id: vine.string(),
+        name: vine.string(),
+        description: vine.string(),
+        size_mb: vine.number().min(0),
+        url: vine.string().url().nullable(),
+        version: vine.string().nullable(),
+      })
+    )
+    .minLength(1),
+})
+
+// ---- Scenario Packs spec ----
+
+export const scenarioPacksSpecSchema = vine.object({
+  spec_version: vine.string(),
+  packs: vine.array(
     vine.object({
-      id: vine.string(),
       name: vine.string(),
+      slug: vine.string(),
+      icon: vine.string(),
       description: vine.string(),
-      size_mb: vine.number().min(0),
-      url: vine.string().url().nullable(),
-      version: vine.string().nullable(),
+      estimated_size_mb: vine.number().min(0),
+      category_tiers: vine.array(
+        vine.object({
+          category_slug: vine.string(),
+          tier_slug: vine.string(),
+        })
+      ),
+      map_collections: vine.array(vine.string()),
+      wikipedia_option: vine.string().nullable(),
+      recommended_models: vine.array(vine.string()),
     })
-  ).minLength(1),
+  ),
 })
 
 // ---- Wikipedia validators (used by ZimService) ----

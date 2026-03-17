@@ -63,7 +63,7 @@ export default class BenchmarkSubmit extends BaseCommand {
         this.logger.info(`  AI Tokens/sec: ${result.ai_tokens_per_second.toFixed(2)}`)
         this.logger.info(`  AI TTFT: ${result.ai_time_to_first_token?.toFixed(2)} ms`)
       }
-      this.logger.info(`  NOMAD Score: ${result.nomad_score.toFixed(2)}`)
+      this.logger.info(`  Attic Score: ${result.nomad_score.toFixed(2)}`)
       this.logger.info('')
       this.logger.info('Privacy Notice:')
       this.logger.info('  - Only the information shown above will be submitted')
@@ -82,17 +82,9 @@ export default class BenchmarkSubmit extends BaseCommand {
         }
       }
 
-      // Submit
-      this.logger.info('Submitting benchmark...')
-      const submitResult = await benchmarkService.submitToRepository(result.benchmark_id)
-
-      this.logger.success('Benchmark submitted successfully!')
-      this.logger.info('')
-      this.logger.info(`Repository ID: ${submitResult.repository_id}`)
-      this.logger.info(`Your percentile: ${submitResult.percentile}%`)
-      this.logger.info('')
-      this.logger.info('Thank you for contributing to the NOMAD community!')
-
+      // Community repository submission is not yet available
+      this.logger.warning('Community repository submission is not yet available.')
+      this.logger.info('Your benchmark results are saved locally.')
     } catch (error) {
       this.logger.error(`Submission failed: ${error.message}`)
       this.exitCode = 1

@@ -7,6 +7,7 @@ export type DoResumableDownloadParams = {
   onProgress?: (progress: DoResumableDownloadProgress) => void
   onComplete?: (url: string, path: string) => void | Promise<void>
   forceNew?: boolean
+  bandwidthLimit?: number // bytes per second, 0 = unlimited
 }
 
 export type DoResumableDownloadWithRetryParams = DoResumableDownloadParams & {
@@ -41,6 +42,11 @@ export type DownloadJobWithProgress = {
   progress: number
   filepath: string
   filetype: string
+  state?: string
+  priority?: number
+  attemptsMade?: number
+  maxAttempts?: number
+  failedReason?: string
 }
 
 // Wikipedia selector types

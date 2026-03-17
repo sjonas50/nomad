@@ -17,8 +17,18 @@ const inertiaConfig = defineConfig({
     environment: process.env.NODE_ENV || 'production',
     aiAssistantName: async () => {
       const customName = await KVStore.getValue('ai.assistantCustomName')
-      return (customName && customName.trim()) ? customName : 'AI Assistant'
+      return customName && customName.trim() ? customName : 'AI Assistant'
     },
+    auth: (ctx) => ({
+      user: ctx.auth?.user
+        ? {
+            id: ctx.auth.user.id,
+            username: ctx.auth.user.username,
+            fullName: ctx.auth.user.full_name,
+            role: ctx.auth.user.role,
+          }
+        : null,
+    }),
   },
 
   /**
@@ -26,8 +36,8 @@ const inertiaConfig = defineConfig({
    */
   ssr: {
     enabled: false,
-    entrypoint: 'inertia/app/ssr.tsx'
-  }
+    entrypoint: 'inertia/app/ssr.tsx',
+  },
 })
 
 export default inertiaConfig

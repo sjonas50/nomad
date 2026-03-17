@@ -4,10 +4,16 @@ import { DockerService } from '#services/docker_service'
 import { ServiceSlim } from '../../types/services.js'
 import logger from '@adonisjs/core/services/logger'
 import si from 'systeminformation'
-import { GpuHealthStatus, NomadDiskInfo, NomadDiskInfoRaw, SystemInformationResponse } from '../../types/system.js'
+import {
+  GpuHealthStatus,
+  NomadDiskInfo,
+  NomadDiskInfoRaw,
+  SystemInformationResponse,
+} from '../../types/system.js'
+import { HardwareSummary } from '../../types/hardware.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
-import { readFileSync } from 'fs'
-import path, { join } from 'path'
+import { readFileSync } from 'node:fs'
+import path, { join } from 'node:path'
 import { getAllFilesystems, getFile } from '../utils/fs.js'
 import axios from 'axios'
 import env from '#start/env'
@@ -15,17 +21,16 @@ import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
 import { isNewerVersion } from '../utils/version.js'
 
-
 @inject()
 export class SystemService {
   private static appVersion: string | null = null
   private static diskInfoFile = '/storage/nomad-disk-info.json'
 
-  constructor(private dockerService: DockerService) { }
+  constructor(private dockerService: DockerService) {}
 
   async checkServiceInstalled(serviceName: string): Promise<boolean> {
-    const services = await this.getServices({ installedOnly: true });
-    return services.some(service => service.service_name === serviceName);
+    const services = await this.getServices({ installedOnly: true })
+    return services.some((service) => service.service_name === serviceName)
   }
 
   async getInternetStatus(): Promise<boolean> {
@@ -67,14 +72,20 @@ export class SystemService {
     return false
   }
 
-  async getNvidiaSmiInfo(): Promise<Array<{ vendor: string; model: string; vram: number; }> | { error: string } | 'OLLAMA_NOT_FOUND' | 'BAD_RESPONSE' | 'UNKNOWN_ERROR'> {
+  async getNvidiaSmiInfo(): Promise<
+    | Array<{ vendor: string; model: string; vram: number }>
+    | { error: string }
+    | 'OLLAMA_NOT_FOUND'
+    | 'BAD_RESPONSE'
+    | 'UNKNOWN_ERROR'
+  > {
     try {
       const containers = await this.dockerService.docker.listContainers({ all: false })
-      const ollamaContainer = containers.find((c) =>
-        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
-      )
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
       if (!ollamaContainer) {
-        logger.info('Ollama container not found for nvidia-smi info retrieval. This is expected if Ollama is not installed.')
+        logger.info(
+          'Ollama container not found for nvidia-smi info retrieval. This is expected if Ollama is not installed.'
+        )
         return 'OLLAMA_NOT_FOUND'
       }
 
@@ -92,23 +103,32 @@ export class SystemService {
       const output = await new Promise<string>((resolve) => {
         let data = ''
         const timeout = setTimeout(() => resolve(data), 5000)
-        stream.on('data', (chunk: Buffer) => { data += chunk.toString() })
-        stream.on('end', () => { clearTimeout(timeout); resolve(data) })
+        stream.on('data', (chunk: Buffer) => {
+          data += chunk.toString()
+        })
+        stream.on('end', () => {
+          clearTimeout(timeout)
+          resolve(data)
+        })
       })
 
       // Remove any non-printable characters and trim the output
       const cleaned = output.replace(/[\x00-\x08]/g, '').trim()
-      if (cleaned && !cleaned.toLowerCase().includes('error') && !cleaned.toLowerCase().includes('not found')) {
+      if (
+        cleaned &&
+        !cleaned.toLowerCase().includes('error') &&
+        !cleaned.toLowerCase().includes('not found')
+      ) {
         // Split by newlines to handle multiple GPUs installed
-        const lines = cleaned.split('\n').filter(line => line.trim())
+        const lines = cleaned.split('\n').filter((line) => line.trim())
 
         // Map each line out to a useful structure for us
-        const gpus = lines.map(line => {
+        const gpus = lines.map((line) => {
           const parts = line.split(',').map((s) => s.trim())
           return {
             vendor: 'NVIDIA',
             model: parts[0] || 'NVIDIA GPU',
-            vram: parts[1] ? parseInt(parts[1], 10) : 0,
+            vram: parts[1] ? Number.parseInt(parts[1], 10) : 0,
           }
         })
 
@@ -117,8 +137,7 @@ export class SystemService {
 
       // If we got output but looks like an error, consider it a bad response from nvidia-smi
       return 'BAD_RESPONSE'
-    }
-    catch (error) {
+    } catch (error) {
       logger.error('Error getting nvidia-smi info:', error)
       if (error instanceof Error && error.message) {
         return { error: error.message }
@@ -237,7 +256,13 @@ export class SystemService {
 
         disk = this.calculateDiskUsage(diskInfo)
       } catch (error) {
-        logger.error('Error reading disk info file:', error)
+        if (process.platform === 'linux') {
+          logger.error('Error reading disk info file:', error)
+        } else {
+          logger.debug(
+            'Disk info file not available (non-Linux platform, disk-collector sidecar not running)'
+          )
+        }
       }
 
       // GPU health tracking — detect when host has NVIDIA GPU but Ollama can't access it
@@ -273,7 +298,7 @@ export class SystemService {
               graphics.controllers = nvidiaInfo.map((gpu) => ({
                 model: gpu.model,
                 vendor: gpu.vendor,
-                bus: "",
+                bus: '',
                 vram: gpu.vram,
                 vramDynamic: false, // assume false here, we don't actually use this field for our purposes.
               }))
@@ -283,7 +308,9 @@ export class SystemService {
               gpuHealth.status = 'ollama_not_installed'
             } else {
               gpuHealth.status = 'passthrough_failed'
-              logger.warn(`NVIDIA runtime detected but GPU passthrough failed: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`)
+              logger.warn(
+                `NVIDIA runtime detected but GPU passthrough failed: ${typeof nvidiaInfo === 'string' ? nvidiaInfo : JSON.stringify(nvidiaInfo)}`
+              )
             }
           }
         } else {
@@ -356,9 +383,10 @@ export class SystemService {
 
       logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
 
-      const updateAvailable = process.env.NODE_ENV === 'development'
-        ? false
-        : isNewerVersion(latestVersion, currentVersion.trim(), earlyAccess)
+      const updateAvailable =
+        process.env.NODE_ENV === 'development'
+          ? false
+          : isNewerVersion(latestVersion, currentVersion.trim(), earlyAccess)
 
       // Cache the results in KVStore for frontend checks
       await KVStore.setValue('system.updateAvailable', updateAvailable)
@@ -411,11 +439,33 @@ export class SystemService {
   }
 
   async updateSetting(key: KVStoreKey, value: any): Promise<void> {
-    if ((value === '' || value === undefined || value === null) && KV_STORE_SCHEMA[key] === 'string') {
+    if (
+      (value === '' || value === undefined || value === null) &&
+      KV_STORE_SCHEMA[key] === 'string'
+    ) {
       await KVStore.clearValue(key)
     } else {
       await KVStore.setValue(key, value)
     }
+  }
+
+  async getHardwareSummary(): Promise<HardwareSummary> {
+    const mem = await si.mem()
+    const summary: HardwareSummary = {
+      totalRamBytes: mem.total,
+      availableRamBytes: mem.available,
+      gpuVramBytes: null,
+      gpuModel: null,
+    }
+
+    const nvidiaInfo = await this.getNvidiaSmiInfo()
+    if (Array.isArray(nvidiaInfo) && nvidiaInfo.length > 0) {
+      // nvidia-smi returns VRAM in MiB
+      summary.gpuVramBytes = nvidiaInfo[0].vram * 1024 * 1024
+      summary.gpuModel = `${nvidiaInfo[0].vendor} ${nvidiaInfo[0].model}`
+    }
+
+    return summary
   }
 
   /**
@@ -498,5 +548,4 @@ export class SystemService {
         }
       })
   }
-
 }

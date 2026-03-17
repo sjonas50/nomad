@@ -1,4 +1,4 @@
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import * as TablerIcons from '@tabler/icons-react'
 
 export type DynamicIconName = keyof typeof TablerIcons

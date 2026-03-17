@@ -16,7 +16,7 @@ import StorageProjectionBar from '~/components/StorageProjectionBar'
 import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
 import { SERVICE_NAMES } from '../../../constants/service_names'
@@ -661,7 +661,7 @@ export default function EasySetupWizard(props: { system: { services: ServiceSlim
     return (
       <div className="space-y-8">
         <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">What do you want NOMAD to do?</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">What do you want The Attic AI to do?</h2>
           <p className="text-gray-600">
             Select the capabilities you need. You can always add more later.
           </p>

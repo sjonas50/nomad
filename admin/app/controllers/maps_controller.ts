@@ -1,6 +1,6 @@
 import { MapService } from '#services/map_service'
 import {
-  assertNotPrivateUrl,
+  assertNotPrivateUrlResolved,
   downloadCollectionValidator,
   filenameParamValidator,
   remoteDownloadValidator,
@@ -26,14 +26,14 @@ export default class MapsController {
 
   async downloadBaseAssets({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadValidatorOptional)
-    if (payload.url) assertNotPrivateUrl(payload.url)
+    if (payload.url) await assertNotPrivateUrlResolved(payload.url)
     await this.mapService.downloadBaseAssets(payload.url)
     return { success: true }
   }
 
   async downloadRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadValidator)
-    assertNotPrivateUrl(payload.url)
+    await assertNotPrivateUrlResolved(payload.url)
     const filename = await this.mapService.downloadRemote(payload.url)
     return {
       message: 'Download started successfully',
@@ -55,7 +55,7 @@ export default class MapsController {
   // For providing a "preflight" check in the UI before actually starting a background download
   async downloadRemotePreflight({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadValidator)
-    assertNotPrivateUrl(payload.url)
+    await assertNotPrivateUrlResolved(payload.url)
     const info = await this.mapService.downloadRemotePreflight(payload.url)
     return info
   }

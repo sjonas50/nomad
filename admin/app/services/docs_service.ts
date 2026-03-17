@@ -1,7 +1,7 @@
 import Markdoc from '@markdoc/markdoc'
 import { streamToString } from '../../util/docs.js'
 import { getFile, getFileStatsIfExists, listDirectoryContentsRecursive } from '../utils/fs.js'
-import path from 'path'
+import path from 'node:path'
 import InternalServerErrorException from '#exceptions/internal_server_error_exception'
 import logger from '@adonisjs/core/services/logger'
 
@@ -47,7 +47,10 @@ export class DocsService {
       // Filter out attribute-undefined errors which may be caused by emojis and special characters
       const criticalErrors = errors.filter((e) => e.error.id !== 'attribute-undefined')
       if (criticalErrors.length > 0) {
-        logger.error('Markdoc validation errors:', errors.map((e) => JSON.stringify(e.error)).join(', '))
+        logger.error(
+          'Markdoc validation errors:',
+          errors.map((e) => JSON.stringify(e.error)).join(', ')
+        )
         throw new Error('Markdoc validation failed')
       }
 
@@ -90,7 +93,7 @@ export class DocsService {
   }
 
   private static readonly TITLE_OVERRIDES: Record<string, string> = {
-    'faq': 'FAQ',
+    faq: 'FAQ',
   }
 
   private prettify(filename: string) {
@@ -142,8 +145,8 @@ export class DocsService {
           attributes: {
             marker: { type: String },
             className: { type: String },
-            class: { type: String }
-          }
+            class: { type: String },
+          },
         },
         table: {
           render: 'Table',

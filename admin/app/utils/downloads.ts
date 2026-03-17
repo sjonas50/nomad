@@ -3,10 +3,11 @@ import {
   DoResumableDownloadWithRetryParams,
 } from '../../types/downloads.js'
 import axios from 'axios'
-import { Transform } from 'stream'
+import { Transform } from 'node:stream'
 import { deleteFileIfExists, ensureDirectoryExists, getFileStatsIfExists } from './fs.js'
-import { createWriteStream } from 'fs'
-import path from 'path'
+import { createWriteStream } from 'node:fs'
+import path from 'node:path'
+import { ThrottleTransform } from './throttle_stream.js'
 
 /**
  * Perform a resumable download with progress tracking
@@ -23,6 +24,7 @@ export async function doResumableDownload({
   onComplete,
   forceNew = false,
   allowedMimeTypes,
+  bandwidthLimit = 0,
 }: DoResumableDownloadParams): Promise<string> {
   const dirname = path.dirname(filepath)
   await ensureDirectoryExists(dirname)
@@ -44,7 +46,7 @@ export async function doResumableDownload({
   })
 
   const contentType = headResponse.headers['content-type'] || ''
-  const totalBytes = parseInt(headResponse.headers['content-length'] || '0')
+  const totalBytes = Number.parseInt(headResponse.headers['content-length'] || '0')
   const supportsRangeRequests = headResponse.headers['accept-ranges'] === 'bytes'
 
   // If allowedMimeTypes is provided, check content type
@@ -116,9 +118,12 @@ export async function doResumableDownload({
       flags: appendMode ? 'a' : 'w',
     })
 
+    const throttleStream = bandwidthLimit > 0 ? new ThrottleTransform(bandwidthLimit) : null
+
     // Handle errors and cleanup
     const cleanup = (error?: Error) => {
       progressStream.destroy()
+      throttleStream?.destroy()
       response.data.destroy()
       writeStream.destroy()
       if (error) {
@@ -128,7 +133,7 @@ export async function doResumableDownload({
 
     response.data.on('error', cleanup)
     progressStream.on('error', cleanup)
-    writeStream.on('error', cleanup)
+    throttleStream?.on('error', cleanup)
     writeStream.on('error', cleanup)
 
     signal?.addEventListener('abort', () => {
@@ -151,8 +156,12 @@ export async function doResumableDownload({
       resolve(filepath)
     })
 
-    // Pipe: response -> progressStream -> writeStream
-    response.data.pipe(progressStream).pipe(writeStream)
+    // Pipe: response -> throttle (optional) -> progressStream -> writeStream
+    if (throttleStream) {
+      response.data.pipe(throttleStream).pipe(progressStream).pipe(writeStream)
+    } else {
+      response.data.pipe(progressStream).pipe(writeStream)
+    }
   })
 }
 

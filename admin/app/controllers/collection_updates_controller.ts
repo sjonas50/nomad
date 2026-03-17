@@ -1,6 +1,6 @@
 import { CollectionUpdateService } from '#services/collection_update_service'
 import {
-  assertNotPrivateUrl,
+  assertNotPrivateUrlResolved,
   applyContentUpdateValidator,
   applyAllContentUpdatesValidator,
 } from '#validators/common'
@@ -14,7 +14,7 @@ export default class CollectionUpdatesController {
 
   async applyUpdate({ request }: HttpContext) {
     const update = await request.validateUsing(applyContentUpdateValidator)
-    assertNotPrivateUrl(update.download_url)
+    await assertNotPrivateUrlResolved(update.download_url)
     const service = new CollectionUpdateService()
     return await service.applyUpdate(update)
   }
@@ -22,7 +22,7 @@ export default class CollectionUpdatesController {
   async applyAllUpdates({ request }: HttpContext) {
     const { updates } = await request.validateUsing(applyAllContentUpdatesValidator)
     for (const update of updates) {
-      assertNotPrivateUrl(update.download_url)
+      await assertNotPrivateUrlResolved(update.download_url)
     }
     const service = new CollectionUpdateService()
     return await service.applyAllUpdates(updates)

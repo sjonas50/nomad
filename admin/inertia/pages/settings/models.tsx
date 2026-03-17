@@ -16,10 +16,13 @@ import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
-import { IconSearch, IconRefresh } from '@tabler/icons-react'
+import { IconSearch, IconRefresh, IconCpu } from '@tabler/icons-react'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
+import HardwareFitnessBadge from '~/components/HardwareFitnessBadge'
+import { parseModelSizeToBytes, categorizeModelFitness, formatBytes } from '~/lib/hardware'
+import type { HardwareSummary } from '../../../types/hardware'
 
 export default function ModelsPage(props: {
   models: {
@@ -34,6 +37,14 @@ export default function ModelsPage(props: {
   const { openModal, closeAllModals } = useModals()
   const { debounce } = useDebounce()
   const { data: systemInfo } = useSystemInfo({})
+
+  const { data: hardwareSummary } = useQuery<HardwareSummary | undefined>({
+    queryKey: ['hardware-summary'],
+    queryFn: async () => await api.getHardwareSummary(),
+    staleTime: 60_000,
+  })
+
+  const [showOnlyCompatible, setShowOnlyCompatible] = useState(false)
 
   const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
     try {
@@ -142,7 +153,7 @@ export default function ModelsPage(props: {
   async function handleInstallModel(modelName: string) {
     try {
       const res = await api.downloadModel(modelName)
-      if (res.success) {
+      if (res?.success) {
         addNotification({
           message: `Model download initiated for ${modelName}. It may take some time to complete.`,
           type: 'success',
@@ -160,7 +171,7 @@ export default function ModelsPage(props: {
   async function handleDeleteModel(modelName: string) {
     try {
       const res = await api.deleteModel(modelName)
-      if (res.success) {
+      if (res?.success) {
         addNotification({
           message: `Model deleted: ${modelName}.`,
           type: 'success',
@@ -220,7 +231,7 @@ export default function ModelsPage(props: {
 
   return (
     <SettingsLayout>
-      <Head title={`${aiAssistantName} Settings | Project N.O.M.A.D.`} />
+      <Head title={`${aiAssistantName} Settings | The Attic AI`} />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
@@ -256,6 +267,19 @@ export default function ModelsPage(props: {
                 disabled: reinstalling,
               }}
             />
+          )}
+
+          {hardwareSummary && (
+            <div className="mt-6 flex items-center gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 px-5 py-3">
+              <IconCpu className="h-5 w-5 text-blue-600 shrink-0" />
+              <p className="text-sm text-blue-800">
+                <span className="font-semibold">Your System:</span>{' '}
+                {formatBytes(hardwareSummary.totalRamBytes)} RAM
+                {hardwareSummary.gpuModel
+                  ? `, ${hardwareSummary.gpuModel} (${formatBytes(hardwareSummary.gpuVramBytes!)} VRAM)`
+                  : ', No GPU'}
+              </p>
+            </div>
           )}
 
           <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
@@ -311,6 +335,15 @@ export default function ModelsPage(props: {
             >
               Refresh Models
             </StyledButton>
+            {hardwareSummary && (
+              <div className="mt-1">
+                <Switch
+                  checked={showOnlyCompatible}
+                  onChange={setShowOnlyCompatible}
+                  label="Show only compatible"
+                />
+              </div>
+            )}
           </div>
           <StyledTable<NomadOllamaModel>
             className="font-semibold mt-4"
@@ -337,7 +370,21 @@ export default function ModelsPage(props: {
                 title: 'Last Updated',
               },
             ]}
-            data={availableModelData?.models || []}
+            data={(() => {
+              const models = availableModelData?.models || []
+              if (!showOnlyCompatible || !hardwareSummary) return models
+              return models.filter((model) =>
+                model.tags.some((tag) => {
+                  const sizeBytes = parseModelSizeToBytes(tag.size || '')
+                  const fitness = categorizeModelFitness(
+                    sizeBytes,
+                    hardwareSummary.totalRamBytes,
+                    hardwareSummary.gpuVramBytes
+                  )
+                  return fitness !== 'too_large'
+                })
+              )
+            })()}
             loading={isFetching}
             expandable={{
               expandedRowRender: (record) => (
@@ -358,6 +405,11 @@ export default function ModelsPage(props: {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Model Size
                           </th>
+                          {hardwareSummary && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Fitness
+                            </th>
+                          )}
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Action
                           </th>
@@ -386,6 +438,17 @@ export default function ModelsPage(props: {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-sm text-gray-600">{tag.size || 'N/A'}</span>
                               </td>
+                              {hardwareSummary && (
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <HardwareFitnessBadge
+                                    fitness={categorizeModelFitness(
+                                      parseModelSizeToBytes(tag.size || ''),
+                                      hardwareSummary.totalRamBytes,
+                                      hardwareSummary.gpuVramBytes
+                                    )}
+                                  />
+                                </td>
+                              )}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StyledButton
                                   variant={isInstalled ? 'danger' : 'primary'}

@@ -1,168 +1,236 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/admin/public/project_nomad_logo.png" width="200" height="200"/>
+<img src="admin/public/project_nomad_logo.png" width="200" height="200"/>
 
-# Project N.O.M.A.D.
-### Node for Offline Media, Archives, and Data
+# The Attic AI
+### Offline AI Knowledge Platform
 
 **Knowledge That Never Goes Offline**
-
-[![Website](https://img.shields.io/badge/Website-projectnomad.us-blue)](https://www.projectnomad.us)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://discord.com/invite/crosstalksolutions)
-[![Benchmark](https://img.shields.io/badge/Benchmark-Leaderboard-green)](https://benchmark.projectnomad.us)
 
 </div>
 
 ---
 
-Project N.O.M.A.D. is a self-contained, offline-first knowledge and education server packed with critical tools, knowledge, and AI to keep you informed and empowered—anytime, anywhere.
+The Attic AI is a self-contained, offline-first knowledge and AI server packed with critical tools, content, and local AI to keep you informed and empowered -- anytime, anywhere. Designed for enterprise, government, and field deployments where reliable offline access to information is mission-critical.
 
-## Installation & Quickstart
-Project N.O.M.A.D. can be installed on any Debian-based operating system (we recommend Ubuntu). Installation is completely terminal-based, and all tools and resources are designed to be accessed through the browser, so there's no need for a desktop environment if you'd rather setup N.O.M.A.D. as a "server" and access it through other clients.
+Built on the [Project N.O.M.A.D.](https://github.com/Crosstalk-Solutions/project-nomad) platform, The Attic AI extends it with hardware-aware model selection, download queue management, backup/restore, scenario-based content packs, and a hardened security layer.
 
-*Note: sudo/root privileges are required to run the install script*
+## Installation
 
-#### Quick Install
+The Attic AI supports **Linux** (Debian-based, Ubuntu recommended) and **macOS** (Apple Silicon or Intel, with Docker Desktop).
+
+### Prerequisites
+
+| | Linux (Debian-based) | macOS |
+|---|---|---|
+| **Docker** | Installed automatically by the installer | [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/) must be installed and running |
+| **Privileges** | Requires `sudo` / root | No `sudo` required |
+| **Install location** | `/opt/project-nomad` | `~/.nomad` |
+| **GPU support** | NVIDIA with [Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) | Not available (CPU-only) |
+
+### Linux (Debian-based)
+
 ```bash
-sudo apt-get update && sudo apt-get install -y curl && curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh && sudo bash install_nomad.sh
+sudo apt-get update && sudo apt-get install -y curl
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh
+sudo bash install_nomad.sh
 ```
 
-Project N.O.M.A.D. is now installed on your device! Open a browser and navigate to `http://localhost:8080` (or `http://DEVICE_IP:8080`) to start exploring!
+### macOS
 
-## How It Works
-N.O.M.A.D. is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
+1. **Install Docker Desktop** from [docker.com](https://www.docker.com/products/docker-desktop/) and make sure it's running (whale icon in menu bar).
 
-**Built-in capabilities include:**
-- **AI Chat with Knowledge Base** — local AI chat powered by [Ollama](https://ollama.com/), with document upload and semantic search (RAG via [Qdrant](https://qdrant.tech/))
-- **Information Library** — offline Wikipedia, medical references, ebooks, and more via [Kiwix](https://kiwix.org/)
-- **Education Platform** — Khan Academy courses with progress tracking via [Kolibri](https://learningequality.org/kolibri/)
-- **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
-- **Data Tools** — encryption, encoding, and analysis via [CyberChef](https://gchq.github.io/CyberChef/)
-- **Notes** — local note-taking via [FlatNotes](https://github.com/dullage/flatnotes)
-- **System Benchmark** — hardware scoring with a [community leaderboard](https://benchmark.projectnomad.us)
-- **Easy Setup Wizard** — guided first-time configuration with curated content collections
+2. **Run the installer:**
 
-N.O.M.A.D. also includes built-in tools like a Wikipedia content selector, ZIM library manager, and content explorer.
+```bash
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/install_nomad.sh -o install_nomad.sh
+bash install_nomad.sh
+```
 
-## What's Included
+The installer will:
+- Verify Docker Desktop is installed and the daemon is running
+- Detect your local IP address (tries `en0`/Wi-Fi, then `en1`/Ethernet, then `127.0.0.1`)
+- Create `~/.nomad/` with subdirectories for storage, MySQL, and Redis data
+- Download the Docker Compose configuration and helper scripts
+- Generate random secrets for the database, Redis, and application key
+- Pull and start all containers
 
-| Capability | Powered By | What You Get |
+3. **Open the admin panel** at `http://localhost:8080` and create your admin account.
+
+### What Gets Installed
+
+| Container | Image | Purpose |
+|-----------|-------|---------|
+| `admin` | `ghcr.io/crosstalk-solutions/project-nomad:latest` | Management UI and API |
+| `mysql` | `mysql:8.0` | User data, settings, audit logs |
+| `redis` | `redis:7-alpine` | Sessions, job queues, caching |
+| `updater` | Built from sidecar Dockerfile | Watches for and applies updates |
+| `disk-collector` | Sidecar image | Disk usage monitoring (Linux only) |
+
+Port **8080** is the only port exposed to the host.
+
+### Post-Install
+
+After first launch, visit `http://localhost:8080` (or `http://<your-ip>:8080` from another device on the network):
+
+1. **Create admin account** -- the first user becomes the admin
+2. **Run the Easy Setup wizard** -- choose a scenario pack or manually select capabilities
+3. **Install apps** -- enable the AI assistant, education platform, and other tools from Settings > Apps
+4. **Download content** -- grab offline Wikipedia, maps, ZIM files, and AI models
+
+## Features
+
+### Core Platform
+
+| Capability | Powered By | Description |
 |-----------|-----------|-------------|
+| AI Chat with Knowledge Base | Ollama + Qdrant | Local AI chat with document upload, OCR, and semantic search (RAG) |
 | Information Library | Kiwix | Offline Wikipedia, medical references, survival guides, ebooks |
-| AI Assistant | Ollama + Qdrant | Built-in chat with document upload and semantic search |
-| Education Platform | Kolibri | Khan Academy courses, progress tracking, multi-user support |
+| Education Platform | Kolibri | Khan Academy courses with progress tracking |
 | Offline Maps | ProtoMaps | Downloadable regional maps with search and navigation |
 | Data Tools | CyberChef | Encryption, encoding, hashing, and data analysis |
 | Notes | FlatNotes | Local note-taking with markdown support |
-| System Benchmark | Built-in | Hardware scoring, Builder Tags, and community leaderboard |
+| System Benchmark | Built-in | Hardware scoring for CPU, memory, disk, and AI performance |
+
+### Added by The Attic AI
+
+| Feature | Description |
+|---------|-------------|
+| **Hardware-Aware Model Picker** | Shows which AI models fit your hardware. Each model tag categorized as Recommended / Will Run (Slow) / Too Large based on RAM and GPU VRAM. Toggle to hide incompatible models. |
+| **Download Manager** | Bandwidth throttling (1/5/10/50 Mbps or unlimited), priority queue (models > maps > ZIM), 10x retries with exponential backoff, pause/resume, and a full management UI. |
+| **Backup & Restore** | Export a JSON manifest of all installed content, settings, and users. Import on a fresh instance to re-download everything. Content files are not included (they can be 100GB+) -- just the list of what to download. |
+| **Scenario Packs** | One-click content bundles for specific use cases. Each pack selects the right ZIM categories, maps, Wikipedia options, and AI models. |
+| **Hardened Security** | CSP, HSTS, SSRF protection with DNS resolution, role-enforced mutation routes, file upload restrictions, path traversal guards, and input validation on all endpoints. |
+
+### Scenario Packs
+
+| Pack | Includes | ~Size |
+|------|----------|-------|
+| Medical Emergency | Medicine ZIMs, Pacific maps, small AI model | ~1 GB |
+| Wilderness Survival | Survival + medicine + agriculture ZIMs, Pacific + mountain maps, 8B AI model | ~5 GB |
+| Grid-Down Communications | Computing + DIY ZIMs, small AI model | ~0.5 GB |
+| Remote Field Operations | All essential ZIM tiers, 3 map collections, mini Wikipedia, 8B AI model | ~18 GB |
+| SCIF / Air-Gapped | All comprehensive ZIM tiers, all 9 map collections, full Wikipedia, 2 AI models | ~150 GB |
+
+## Security
+
+The Attic AI includes a defense-in-depth security layer:
+
+- **Authentication** -- session-based login with remember-me, rate limiting (lockout after 5 failed attempts), and atomic initial setup (race-condition-proof)
+- **Role-Based Access Control (RBAC)** -- three roles with a strict hierarchy:
+  - **Viewer** -- browse content, chat, view maps and docs
+  - **Operator** -- all viewer permissions plus content management, download queue control, service management, system settings
+  - **Admin** -- full access including user management, audit logs, backup/restore
+- **Content Security Policy (CSP)** -- strict directives blocking XSS; `unsafe-eval` only in development
+- **HSTS** -- enforced in production deployments
+- **CSRF Protection** -- on all state-changing requests
+- **SSRF Protection** -- URL validation with DNS resolution to prevent rebinding attacks
+- **Input Validation** -- VineJS validators on all endpoints; file upload type/size restrictions; path traversal guards
+- **Audit Logging** -- all mutations logged with user, action, result, IP, and timestamp
+- **Secure Defaults** -- MySQL and Redis not exposed to host network; Redis requires auth; secrets generated randomly at install
 
 ## Device Requirements
-While many similar offline survival computers are designed to be run on bare-minimum, lightweight hardware, Project N.O.M.A.D. is quite the opposite. To install and run the
-available AI tools, we highly encourage the use of a beefy, GPU-backed device to make the most of your install.
 
-At it's core, however, N.O.M.A.D. is still very lightweight. For a barebones installation of the management application itself, the following minimal specs are required:
+### Minimum (management UI + content browsing)
+- 2 GHz dual-core processor
+- 4 GB RAM
+- 5 GB free disk space
+- Debian-based Linux (Ubuntu recommended) or macOS 12+
+- Docker (Linux) or Docker Desktop (macOS)
+- Internet connection for initial install and content downloads only
 
-*Note: Project N.O.M.A.D. is not sponsored by any hardware manufacturer and is designed to be as hardware-agnostic as possible. The harware listed below is for example/comparison use only*
+### Recommended (with AI models and full content)
+- AMD Ryzen 7 / Intel Core i7 / Apple Silicon M1 or better
+- 32 GB RAM
+- NVIDIA RTX 3060+ or equivalent (Linux only; macOS is CPU-only)
+- 250 GB+ free SSD space
+- Debian-based Linux or macOS 12+
 
-#### Minimum Specs
-- Processor: 2 GHz dual-core processor or better
-- RAM: 4GB system memory
-- Storage: At least 5 GB free disk space
-- OS: Debian-based (Ubuntu recommended)
-- Stable internet connection (required during install only)
+## Platform Notes
 
-To run LLM's and other included AI tools:
+### Linux
+- Installs to `/opt/project-nomad`
+- Requires sudo for installation and Docker management
+- Full GPU passthrough support (NVIDIA with Container Toolkit)
+- Disk usage monitoring via dedicated sidecar container
+- Auto-start via systemd (if configured)
 
-#### Optimal Specs
-- Processor: AMD Ryzen 7 or Intel Core i7 or better
-- RAM: 32 GB system memory
-- Graphics: NVIDIA RTX 3060 or AMD equivalent or better (more VRAM = run larger models)
-- Storage: At least 250 GB free disk space (preferably on SSD)
-- OS: Debian-based (Ubuntu recommended)
-- Stable internet connection (required during install only)
+### macOS
+- Installs to `~/.nomad`
+- No sudo required (Docker Desktop handles permissions)
+- GPU passthrough not available; AI models run CPU-only (Apple Silicon's unified memory still benefits larger models)
+- Disk usage reported via system info fallback (no sidecar needed)
+- Auto-start: relies on Docker Desktop's "Start Docker Desktop when you sign in" setting
+- IP detection uses `ipconfig getifaddr en0` (Wi-Fi) or `en1` (Ethernet)
 
-**For detailed build recommendations at three price points ($200–$800+), see the [Hardware Guide](https://www.projectnomad.us/hardware).**
+## Privacy
 
-Again, Project N.O.M.A.D. itself is quite lightweight - it's the tools and resources you choose to install with N.O.M.A.D. that will determine the specs required for your unique deployment
+The Attic AI is designed for offline usage. An internet connection is only required during installation and when downloading content. The system has **zero built-in telemetry** -- no usage data, analytics, or tracking is collected or transmitted.
 
-## About Internet Usage & Privacy
-Project N.O.M.A.D. is designed for offline usage. An internet connection is only required during the initial installation (to download dependencies) and if you (the user) decide to download additional tools and resources at a later time. Otherwise, N.O.M.A.D. does not require an internet connection and has ZERO built-in telemetry.
+The only outbound network requests are:
+- **Content downloads** (user-initiated)
+- **Update checks** (GitHub API, cached)
+- **Internet connectivity test** (`https://1.1.1.1/cdn-cgi/trace`, configurable via `INTERNET_STATUS_TEST_URL`)
+- **Release notes subscription** (only if you explicitly enter your email)
 
-To test internet connectivity, N.O.M.A.D. attempts to make a request to Cloudflare's utility endpoint, `https://1.1.1.1/cdn-cgi/trace` and checks for a successful response.
+## Helper Scripts
 
-## About Security
-By design, Project N.O.M.A.D. is intended to be open and available without hurdles - it includes no authentication. If you decide to connect your device to a local network after install (e.g. for allowing other devices to access it's resources), you can block/open ports to control which services are exposed.
+Once installed, helper scripts are available for maintenance. On Linux they're in `/opt/project-nomad`, on macOS in `~/.nomad`.
 
-**Will authentication be added in the future?** Maybe. It's not currently a priority, but if there's enough demand for it, we may consider building in an optional authentication layer in a future release to support uses cases where multiple users need access to the same instance but with different permission levels (e.g. family use with parental controls, classroom use with teacher/admin accounts, etc.). For now, we recommend using network-level controls to manage access if you're planning to expose your N.O.M.A.D. instance to other devices on a local network. N.O.M.A.D. is not designed to be exposed directly to the internet, and we strongly advise against doing so unless you really know what you're doing, have taken appropriate security measures, and understand the risks involved.
+```bash
+# Start all containers
+# Linux: sudo bash /opt/project-nomad/start_nomad.sh
+# macOS:
+bash ~/.nomad/start_nomad.sh
 
-## Contributing
-Contributions are welcome and appreciated! Please read this section fully to understand how to contribute to the project.
+# Stop all containers
+# Linux: sudo bash /opt/project-nomad/stop_nomad.sh
+# macOS:
+bash ~/.nomad/stop_nomad.sh
 
-### General Guidelines
+# Update core containers (pulls latest images and recreates)
+# Linux: sudo bash /opt/project-nomad/update_nomad.sh
+# macOS:
+bash ~/.nomad/update_nomad.sh
+```
 
-- **Open an issue first**: Before starting work on a new feature or bug fix, please open an issue to discuss your proposed changes. This helps ensure that your contribution aligns with the project's goals and avoids duplicate work. Title the issue clearly and provide a detailed description of the problem or feature you want to work on.
-- **Fork the repository**: Click the "Fork" button at the top right of the repository page to create a copy of the project under your GitHub account.
-- **Create a new branch**: In your forked repository, create a new branch for your work. Use a descriptive name for the branch that reflects the purpose of your changes (e.g., `fix/issue-123` or `feature/add-new-tool`).
-- **Make your changes**: Implement your changes in the new branch. Follow the existing code style and conventions used in the project. Be sure to test your changes locally to ensure they work as expected.
-- **Add Release Notes**: If your changes include new features, bug fixes, or improvements, please see the "Release Notes" section below to properly document your contribution for the next release.
-- **Conventional Commits**: When committing your changes, please use conventional commit messages to provide clear and consistent commit history. The format is `<type>(<scope>): <description>`, where:
-  - `type` is the type of change (e.g., `feat` for new features, `fix` for bug fixes, `docs` for documentation changes, etc.)
-  - `scope` is an optional area of the codebase that your change affects (e.g., `api`, `ui`, `docs`, etc.)
-  - `description` is a brief summary of the change
-- **Submit a pull request**: Once your changes are ready, submit a pull request to the main repository. Provide a clear description of your changes and reference any related issues. The project maintainers will review your pull request and may provide feedback or request changes before it can be merged.
-- **Be responsive to feedback**: If the maintainers request changes or provide feedback on your pull request, please respond in a timely manner. Stale pull requests may be closed if there is no activity for an extended period.
-- **Follow the project's code of conduct**: Please adhere to the project's code of conduct when interacting with maintainers and other contributors. Be respectful and considerate in your communications.
-- **No guarantee of acceptance**: The project is community-driven, and all contributions are appreciated, but acceptance is not guaranteed. The maintainers will evaluate each contribution based on its quality, relevance, and alignment with the project's goals.
-- **Thank you for contributing to Project N.O.M.A.D.!** Your efforts help make this project better for everyone.
+## Development
 
-### Versioning
-This project uses semantic versioning. The version is managed in the root `package.json` 
-and automatically updated by semantic-release. For simplicity's sake, the "project-nomad" image
-uses the same version defined there instead of the version in `admin/package.json` (stays at 0.0.0), as it's the only published image derived from the code.
+### Local Development Setup
 
-### Release Notes
-Human-readable release notes live in [`admin/docs/release-notes.md`](admin/docs/release-notes.md) and are displayed in the Command Center's built-in documentation.
+```bash
+# Clone the repo
+git clone <repo-url> && cd nomad/admin
 
-When working on changes, add a summary to the `## Unreleased` section at the top of that file under the appropriate heading:
+# Install dependencies
+npm install
 
-- **Features** — new user-facing capabilities
-- **Bug Fixes** — corrections to existing behavior
-- **Improvements** — enhancements, refactors, docs, or dependency updates
+# Copy environment template
+cp .env.example .env
+# Edit .env with your local database/Redis credentials
 
-Use the format `- **Area**: Description` to stay consistent with existing entries. When a release is triggered, CI automatically stamps the version and date, commits the update, and pushes the content to the GitHub release.
+# Run database migrations
+node ace migration:run
 
-## Community & Resources
+# Start dev server (with Vite HMR)
+node ace serve --hmr
+```
 
-- **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
-- **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
-- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
+### Tech Stack
+- **Backend:** AdonisJS 6, TypeScript, Lucid ORM, VineJS validation
+- **Frontend:** React 19, Inertia.js, TanStack React Query, Tailwind CSS
+- **Database:** MySQL 8
+- **Queue:** BullMQ (Redis-backed)
+- **Real-time:** Adonis Transmit (SSE)
+- **AI:** Ollama JavaScript SDK
+- **Containerization:** Docker Compose
+
+### Git Conventions
+- Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+- Feature branches off main
+- Small, focused commits
 
 ## License
 
-Project N.O.M.A.D. is licensed under the [Apache License 2.0](LICENSE).
+Licensed under the [Apache License 2.0](LICENSE).
 
-## Helper Scripts
-Once installed, Project N.O.M.A.D. has a few helper scripts should you ever need to troubleshoot issues or perform maintenance that can't be done through the Command Center. All of these scripts are found in Project N.O.M.A.D.'s install directory, `/opt/project-nomad`
-
-###
-
-###### Start Script - Starts all installed project containers
-```bash
-sudo bash /opt/project-nomad/start_nomad.sh
-```
-###
-
-###### Stop Script - Stops all installed project containers
-```bash
-sudo bash /opt/project-nomad/stop_nomad.sh
-```
-###
-
-###### Update Script - Attempts to pull the latest images for the Command Center and its dependencies (i.e. mysql) and recreate the containers. Note: this *only* updates the Command Center containers. It does not update the installable application containers - that should be done through the Command Center UI
-```bash
-sudo bash /opt/project-nomad/update_nomad.sh
-```
-
-###### Uninstall Script - Need to start fresh? Use the uninstall script to make your life easy. Note: this cannot be undone!
-```bash
-curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/uninstall_nomad.sh -o uninstall_nomad.sh && sudo bash uninstall_nomad.sh
-```
+Copyright 2024-2026 The Attic AI. Built on [Project N.O.M.A.D.](https://github.com/Crosstalk-Solutions/project-nomad) by Crosstalk Solutions, LLC.

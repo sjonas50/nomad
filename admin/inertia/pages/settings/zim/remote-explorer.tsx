@@ -89,7 +89,7 @@ export default function ZimRemoteExplorer() {
         if (!res) {
           throw new Error('Failed to fetch remote ZIM files.')
         }
-        return res.data
+        return res
       },
       initialPageParam: 0,
       getNextPageParam: (_lastPage, pages) => {
@@ -271,7 +271,7 @@ export default function ZimRemoteExplorer() {
 
   return (
     <SettingsLayout>
-      <Head title="Content Explorer | Project N.O.M.A.D." />
+      <Head title="Content Explorer | The Attic AI" />
       <div className="xl:pl-72 w-full">
         <main className="px-12 py-6">
           <div className="flex justify-between items-center">

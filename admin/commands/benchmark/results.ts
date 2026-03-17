@@ -89,7 +89,6 @@ export default class BenchmarkResults extends BaseCommand {
       }
 
       this.logger.info(`Total results: ${results.length}`)
-
     } catch (error) {
       this.logger.error(`Failed to retrieve results: ${error.message}`)
       this.exitCode = 1

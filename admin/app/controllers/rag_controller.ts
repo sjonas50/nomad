@@ -9,12 +9,52 @@ import { deleteFileSchema, getJobStatusSchema } from '#validators/rag'
 
 @inject()
 export default class RagController {
-  constructor(private ragService: RagService) { }
+  constructor(private ragService: RagService) {}
 
   public async upload({ request, response }: HttpContext) {
-    const uploadedFile = request.file('file')
+    const uploadedFile = request.file('file', {
+      size: '100mb',
+      extnames: [
+        'pdf',
+        'txt',
+        'md',
+        'csv',
+        'json',
+        'xml',
+        'html',
+        'htm',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'pptx',
+        'odt',
+        'ods',
+        'odp',
+        'rtf',
+        'epub',
+        'log',
+        'yaml',
+        'yml',
+        'toml',
+        'ini',
+        'cfg',
+        'png',
+        'jpg',
+        'jpeg',
+        'gif',
+        'bmp',
+        'tiff',
+        'webp',
+        'svg',
+      ],
+    })
     if (!uploadedFile) {
       return response.status(400).json({ error: 'No file uploaded' })
+    }
+
+    if (uploadedFile.errors.length > 0) {
+      return response.status(422).json({ error: 'Invalid file', details: uploadedFile.errors })
     }
 
     const randomSuffix = randomBytes(6).toString('hex')
@@ -50,6 +90,15 @@ export default class RagController {
   public async getJobStatus({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(getJobStatusSchema)
 
+    // Reject path traversal attempts
+    if (
+      reqData.filePath.includes('..') ||
+      reqData.filePath.includes('/') ||
+      reqData.filePath.includes('\\')
+    ) {
+      return response.status(400).json({ error: 'Invalid file path' })
+    }
+
     const fullPath = app.makePath(RagService.UPLOADS_STORAGE_PATH, reqData.filePath)
     const status = await EmbedFileJob.getStatus(fullPath)
 
@@ -79,7 +128,9 @@ export default class RagController {
       const syncResult = await this.ragService.scanAndSyncStorage()
       return response.status(200).json(syncResult)
     } catch (error) {
-      return response.status(500).json({ error: 'Error scanning and syncing storage', details: error.message })
+      return response
+        .status(500)
+        .json({ error: 'Error scanning and syncing storage', details: error.message })
     }
   }
 }

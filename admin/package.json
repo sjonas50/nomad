@@ -1,10 +1,10 @@
 {
-  "name": "project-nomad-admin",
+  "name": "the-attic-ai-admin",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "license": "ISC",
-  "author": "Crosstalk Solutions, LLC",
+  "author": "The Attic AI",
   "scripts": {
     "start": "node bin/server.js",
     "build": "node ace build",

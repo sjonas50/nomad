@@ -1,6 +1,6 @@
 import { Job } from 'bullmq'
 import { QueueService } from '#services/queue_service'
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
 import { OllamaService } from '#services/ollama_service'
 
@@ -37,17 +37,13 @@ export class DownloadModelJob {
       throw new Error('Ollama service not ready yet')
     }
 
-    logger.info(
-      `[DownloadModelJob] Ollama service is ready. Initiating download for ${modelName}`
-    )
+    logger.info(`[DownloadModelJob] Ollama service is ready. Initiating download for ${modelName}`)
 
     // Services are ready, initiate the download with progress tracking
     const result = await ollamaService.downloadModel(modelName, (progressPercent) => {
       if (progressPercent) {
         job.updateProgress(Math.floor(progressPercent))
-        logger.info(
-          `[DownloadModelJob] Model ${modelName}: ${progressPercent}%`
-        )
+        logger.info(`[DownloadModelJob] Model ${modelName}: ${progressPercent}%`)
       }
 
       // Store detailed progress in job data for clients to query
@@ -74,14 +70,14 @@ export class DownloadModelJob {
   }
 
   static async getByModelName(modelName: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(modelName)
     return await queue.getJob(jobId)
   }
 
   static async dispatch(params: DownloadModelJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.modelName)
 

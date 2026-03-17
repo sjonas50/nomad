@@ -11,9 +11,6 @@ export default class BenchmarkRun extends BaseCommand {
   @flags.boolean({ description: 'Run AI benchmark only', alias: 'a' })
   declare aiOnly: boolean
 
-  @flags.boolean({ description: 'Submit results to repository after completion', alias: 'S' })
-  declare submit: boolean
-
   static options: CommandOptions = {
     startApp: true,
   }
@@ -80,23 +77,9 @@ export default class BenchmarkRun extends BaseCommand {
       }
 
       this.logger.info('')
-      this.logger.info(`NOMAD Score: ${result.nomad_score.toFixed(2)} / 100`)
+      this.logger.info(`Attic Score: ${result.nomad_score.toFixed(2)} / 100`)
       this.logger.info('')
       this.logger.info(`Benchmark ID: ${result.benchmark_id}`)
-
-      // Submit if requested
-      if (this.submit) {
-        this.logger.info('')
-        this.logger.info('Submitting results to repository...')
-        try {
-          const submitResult = await benchmarkService.submitToRepository(result.benchmark_id)
-          this.logger.success(`Results submitted! Repository ID: ${submitResult.repository_id}`)
-          this.logger.info(`Your percentile: ${submitResult.percentile}%`)
-        } catch (error) {
-          this.logger.error(`Failed to submit: ${error.message}`)
-        }
-      }
-
     } catch (error) {
       this.logger.error(`Benchmark failed: ${error.message}`)
       this.exitCode = 1

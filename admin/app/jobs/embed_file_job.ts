@@ -4,7 +4,7 @@ import { EmbedJobWithProgress } from '../../types/rag.js'
 import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
 
 export interface EmbedFileJobParams {
@@ -12,7 +12,7 @@ export interface EmbedFileJobParams {
   fileName: string
   fileSize?: number
   // Batch processing for large ZIM files
-  batchOffset?: number  // Current batch offset (for ZIM files)
+  batchOffset?: number // Current batch offset (for ZIM files)
   totalArticles?: number // Total articles in ZIM (for progress tracking)
   isFinalBatch?: boolean // Whether this is the last batch (prevents premature deletion)
 }
@@ -90,9 +90,7 @@ export class EmbedFileJob {
       // For ZIM files with batching, check if more batches are needed
       if (result.hasMoreBatches) {
         const nextOffset = (batchOffset || 0) + (result.articlesProcessed || 0)
-        logger.info(
-          `[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`
-        )
+        logger.info(`[EmbedFileJob] Batch complete. Dispatching next batch at offset ${nextOffset}`)
 
         // Dispatch next batch (not final yet)
         await EmbedFileJob.dispatch({
@@ -104,9 +102,7 @@ export class EmbedFileJob {
         })
 
         // Calculate progress based on articles processed
-        const progress = totalArticles
-          ? Math.round((nextOffset / totalArticles) * 100)
-          : 50
+        const progress = totalArticles ? Math.round((nextOffset / totalArticles) * 100) : 50
 
         await job.updateProgress(progress)
         await job.updateData({
@@ -164,7 +160,7 @@ export class EmbedFileJob {
   }
 
   static async listActiveJobs(): Promise<EmbedJobWithProgress[]> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
@@ -178,14 +174,14 @@ export class EmbedFileJob {
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(filePath)
     return await queue.getJob(jobId)
   }
 
   static async dispatch(params: EmbedFileJobParams) {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.filePath)
 
@@ -198,7 +194,7 @@ export class EmbedFileJob {
           delay: 60000, // Check every 60 seconds for service readiness
         },
         removeOnComplete: { count: 50 }, // Keep last 50 completed jobs for history
-        removeOnFail: { count: 20 } // Keep last 20 failed jobs for debugging
+        removeOnFail: { count: 20 }, // Keep last 20 failed jobs for debugging
       })
 
       logger.info(`[EmbedFileJob] Dispatched embedding job for file: ${params.fileName}`)

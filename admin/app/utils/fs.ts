@@ -1,7 +1,7 @@
-import { mkdir, readdir, readFile, stat, unlink } from 'fs/promises'
-import path, { join } from 'path'
+import { mkdir, readdir, readFile, stat, unlink } from 'node:fs/promises'
+import path, { join } from 'node:path'
 import { FileEntry } from '../../types/files.js'
-import { createReadStream } from 'fs'
+import { createReadStream } from 'node:fs'
 import { LSBlockDevice, NomadDiskInfoRaw } from '../../types/system.js'
 
 export const ZIM_STORAGE_PATH = '/storage/zim'

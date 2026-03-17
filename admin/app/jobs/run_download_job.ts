@@ -2,11 +2,12 @@ import { Job } from 'bullmq'
 import { RunDownloadJobParams } from '../../types/downloads.js'
 import { QueueService } from '#services/queue_service'
 import { doResumableDownload } from '../utils/downloads.js'
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
 import { DockerService } from '#services/docker_service'
 import { ZimService } from '#services/zim_service'
 import { MapService } from '#services/map_service'
 import { EmbedFileJob } from './embed_file_job.js'
+import KVStore from '#models/kv_store'
 
 export class RunDownloadJob {
   static get queue() {
@@ -25,12 +26,22 @@ export class RunDownloadJob {
     const { url, filepath, timeout, allowedMimeTypes, forceNew, filetype, resourceMetadata } =
       job.data as RunDownloadJobParams
 
+    // Read bandwidth limit from settings
+    let bandwidthLimit = 0
+    try {
+      const limitStr = await KVStore.getValue('downloads.bandwidthLimit')
+      if (limitStr) bandwidthLimit = Number.parseInt(limitStr, 10) || 0
+    } catch {
+      /* default to unlimited */
+    }
+
     await doResumableDownload({
       url,
       filepath,
       timeout,
       allowedMimeTypes,
       forceNew,
+      bandwidthLimit,
       onProgress(progress) {
         const progressPercent = (progress.downloadedBytes / (progress.totalBytes || 1)) * 100
         job.updateProgress(Math.floor(progressPercent))
@@ -52,7 +63,10 @@ export class RunDownloadJob {
             const oldFilePath = oldEntry?.file_path ?? null
 
             await InstalledResource.updateOrCreate(
-              { resource_id: resourceMetadata.resource_id, resource_type: filetype as 'zim' | 'map' },
+              {
+                resource_id: resourceMetadata.resource_id,
+                resource_type: filetype as 'zim' | 'map',
+              },
               {
                 version: resourceMetadata.version,
                 collection_ref: resourceMetadata.collection_ref,
@@ -89,7 +103,10 @@ export class RunDownloadJob {
                 filePath: filepath,
               })
             } catch (error) {
-              console.error(`[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`, error)
+              console.error(
+                `[RunDownloadJob] Error dispatching EmbedFileJob for URL ${url}:`,
+                error
+              )
             }
           } else if (filetype === 'map') {
             const mapsService = new MapService()
@@ -112,23 +129,24 @@ export class RunDownloadJob {
   }
 
   static async getByUrl(url: string): Promise<Job | undefined> {
-    const queueService = new QueueService()
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(url)
     return await queue.getJob(jobId)
   }
 
-  static async dispatch(params: RunDownloadJobParams) {
-    const queueService = new QueueService()
+  static async dispatch(params: RunDownloadJobParams, priority?: number) {
+    const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobId = this.getJobId(params.url)
 
     try {
       const job = await queue.add(this.key, params, {
         jobId,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 2000 },
+        attempts: 10,
+        backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: true,
+        ...(priority ? { priority } : {}),
       })
 
       return {

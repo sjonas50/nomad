@@ -23,18 +23,23 @@ export class OllamaService {
   private ollama: Ollama | null = null
   private ollamaInitPromise: Promise<void> | null = null
 
-  constructor() { }
+  constructor() {}
 
   private async _initializeOllamaClient() {
     if (!this.ollamaInitPromise) {
       this.ollamaInitPromise = (async () => {
         const dockerService = new (await import('./docker_service.js')).DockerService()
-        const qdrantUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
-        if (!qdrantUrl) {
+        const ollamaUrl = await dockerService.getServiceURL(SERVICE_NAMES.OLLAMA)
+        if (!ollamaUrl) {
           throw new Error('Ollama service is not installed or running.')
         }
-        this.ollama = new Ollama({ host: qdrantUrl })
+        this.ollama = new Ollama({ host: ollamaUrl })
       })()
+
+      // Reset cached promise on failure so subsequent calls can retry
+      this.ollamaInitPromise.catch(() => {
+        this.ollamaInitPromise = null
+      })
     }
     return this.ollamaInitPromise
   }
@@ -51,7 +56,10 @@ export class OllamaService {
    * @param model Model name to download
    * @returns Success status and message
    */
-  async downloadModel(model: string, progressCallback?: (percent: number) => void): Promise<{ success: boolean; message: string }> {
+  async downloadModel(
+    model: string,
+    progressCallback?: (percent: number) => void
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await this._ensureDependencies()
       if (!this.ollama) {
@@ -74,7 +82,7 @@ export class OllamaService {
       for await (const chunk of downloadStream) {
         if (chunk.completed && chunk.total) {
           const percent = ((chunk.completed / chunk.total) * 100).toFixed(2)
-          const percentNum = parseFloat(percent)
+          const percentNum = Number.parseFloat(percent)
 
           this.broadcastDownloadProgress(model, percentNum)
           if (progressCallback) {
@@ -87,7 +95,8 @@ export class OllamaService {
       return { success: true, message: 'Model downloaded successfully.' }
     } catch (error) {
       logger.error(
-        `[OllamaService] Failed to download model "${model}": ${error instanceof Error ? error.message : error
+        `[OllamaService] Failed to download model "${model}": ${
+          error instanceof Error ? error.message : error
         }`
       )
       return { success: false, message: 'Failed to download model.' }
@@ -183,13 +192,25 @@ export class OllamaService {
   }
 
   async getAvailableModels(
-    { sort, recommendedOnly, query, limit, force }: { sort?: 'pulls' | 'name'; recommendedOnly?: boolean, query: string | null, limit?: number, force?: boolean } = {
+    {
+      sort,
+      recommendedOnly,
+      query,
+      limit,
+      force,
+    }: {
+      sort?: 'pulls' | 'name'
+      recommendedOnly?: boolean
+      query: string | null
+      limit?: number
+      force?: boolean
+    } = {
       sort: 'pulls',
       recommendedOnly: false,
       query: null,
       limit: 15,
     }
-  ): Promise<{ models: NomadOllamaModel[], hasMore: boolean } | null> {
+  ): Promise<{ models: NomadOllamaModel[]; hasMore: boolean } | null> {
     try {
       const models = await this.retrieveAndRefreshModels(sort, force)
       if (!models) {
@@ -199,7 +220,7 @@ export class OllamaService {
         )
         return {
           models: FALLBACK_RECOMMENDED_OLLAMA_MODELS,
-          hasMore: false
+          hasMore: false,
         }
       }
 
@@ -207,7 +228,7 @@ export class OllamaService {
         const filteredModels = query ? this.fuseSearchModels(models, query) : models
         return {
           models: filteredModels.slice(0, limit || 15),
-          hasMore: filteredModels.length > (limit || 15)
+          hasMore: filteredModels.length > (limit || 15),
         }
       }
 
@@ -227,13 +248,13 @@ export class OllamaService {
         const filteredRecommendedModels = this.fuseSearchModels(recommendedModels, query)
         return {
           models: filteredRecommendedModels,
-          hasMore: filteredRecommendedModels.length > (limit || 15)
+          hasMore: filteredRecommendedModels.length > (limit || 15),
         }
       }
 
       return {
         models: recommendedModels,
-        hasMore: recommendedModels.length > (limit || 15)
+        hasMore: recommendedModels.length > (limit || 15),
       }
     } catch (error) {
       logger.error(
@@ -285,7 +306,8 @@ export class OllamaService {
       return this.sortModels(noCloud, sort)
     } catch (error) {
       logger.error(
-        `[OllamaService] Failed to retrieve models from Nomad API: ${error instanceof Error ? error.message : error
+        `[OllamaService] Failed to retrieve models from Nomad API: ${
+          error instanceof Error ? error.message : error
         }`
       )
       return null
@@ -346,7 +368,7 @@ export class OllamaService {
               : pulls.endsWith('B')
                 ? 1_000_000_000
                 : 1
-          return parseFloat(pulls) * multiplier
+          return Number.parseFloat(pulls) * multiplier
         }
         return parsePulls(b.estimated_pulls) - parsePulls(a.estimated_pulls)
       })
@@ -369,7 +391,7 @@ export class OllamaService {
                   : size.endsWith('TB')
                     ? 1_000
                     : 0 // Unknown size format
-            return parseFloat(size) * multiplier
+            return Number.parseFloat(size) * multiplier
           }
           return parseSize(a.size) - parseSize(b.size)
         })
@@ -397,6 +419,6 @@ export class OllamaService {
 
     const fuse = new Fuse(models, options)
 
-    return fuse.search(query).map(result => result.item)
+    return fuse.search(query).map((result) => result.item)
   }
 }

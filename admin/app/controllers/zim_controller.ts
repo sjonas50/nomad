@@ -1,6 +1,6 @@
 import { ZimService } from '#services/zim_service'
 import {
-  assertNotPrivateUrl,
+  assertNotPrivateUrlResolved,
   downloadCategoryTierValidator,
   filenameParamValidator,
   remoteDownloadWithMetadataValidator,
@@ -26,7 +26,7 @@ export default class ZimController {
 
   async downloadRemote({ request }: HttpContext) {
     const payload = await request.validateUsing(remoteDownloadWithMetadataValidator)
-    assertNotPrivateUrl(payload.url)
+    await assertNotPrivateUrlResolved(payload.url)
     const { filename, jobId } = await this.zimService.downloadRemote(payload.url)
 
     return {

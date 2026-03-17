@@ -4,7 +4,7 @@ import { IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react'
 import type { CategoryWithStatus, SpecTier, SpecResource } from '../../types/collections'
 import { resolveTierResources } from '~/lib/collections'
 import { formatBytes } from '~/lib/util'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 
 interface TierSelectionModalProps {

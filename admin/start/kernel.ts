@@ -28,7 +28,7 @@ server.use([
   () => import('@adonisjs/vite/vite_middleware'),
   () => import('@adonisjs/inertia/inertia_middleware'),
   () => import('@adonisjs/static/static_middleware'),
-  () => import('#middleware/maps_static_middleware')
+  () => import('#middleware/maps_static_middleware'),
 ])
 
 /**
@@ -37,12 +37,19 @@ server.use([
  */
 router.use([
   () => import('@adonisjs/core/bodyparser_middleware'),
-  // () => import('@adonisjs/session/session_middleware'),
+  () => import('@adonisjs/session/session_middleware'),
   () => import('@adonisjs/shield/shield_middleware'),
+  () => import('@adonisjs/auth/initialize_auth_middleware'),
+  () => import('#middleware/audit_middleware'),
 ])
 
 /**
  * Named middleware collection must be explicitly assigned to
  * the routes or the routes group.
  */
-export const middleware = router.named({})
+export const middleware = router.named({
+  auth: () => import('#middleware/auth_middleware'),
+  guest: () => import('#middleware/guest_middleware'),
+  loginRateLimit: () => import('#middleware/login_rate_limit_middleware'),
+  role: () => import('#middleware/role_middleware'),
+})

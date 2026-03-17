@@ -1,14 +1,14 @@
 // Helper hook to show error notifications
-import { useNotifications } from '../context/NotificationContext';
+import { useNotifications } from '../context/NotificationContext'
 
 const useErrorNotification = () => {
-  const { addNotification } = useNotifications();
+  const { addNotification } = useNotifications()
 
   const showError = (message: string) => {
-    addNotification({ message, type: 'error' });
-  };
+    addNotification({ message, type: 'error' })
+  }
 
-  return { showError };
-};
+  return { showError }
+}
 
-export default useErrorNotification;
+export default useErrorNotification

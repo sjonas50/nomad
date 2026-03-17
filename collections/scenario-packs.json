@@ -1,0 +1,87 @@
+{
+  "spec_version": "1.0",
+  "packs": [
+    {
+      "name": "Medical Emergency",
+      "slug": "medical-emergency",
+      "icon": "IconFirstAidKit",
+      "description": "Essential medical references and first aid guides for emergency situations. Includes offline medical encyclopedias and a lightweight AI model for quick answers.",
+      "estimated_size_mb": 1000,
+      "category_tiers": [
+        { "category_slug": "medicine", "tier_slug": "essential" }
+      ],
+      "map_collections": ["pacific"],
+      "wikipedia_option": null,
+      "recommended_models": ["llama3.2:1b-text-q2_K"]
+    },
+    {
+      "name": "Wilderness Survival",
+      "slug": "wilderness-survival",
+      "icon": "IconTree",
+      "description": "Survival guides, medical references, and agricultural knowledge for extended off-grid scenarios. Includes regional maps and a capable AI model.",
+      "estimated_size_mb": 5000,
+      "category_tiers": [
+        { "category_slug": "survival", "tier_slug": "essential" },
+        { "category_slug": "medicine", "tier_slug": "essential" },
+        { "category_slug": "agriculture", "tier_slug": "essential" }
+      ],
+      "map_collections": ["pacific", "mountain"],
+      "wikipedia_option": null,
+      "recommended_models": ["llama3.1:8b-text-q4_1"]
+    },
+    {
+      "name": "Grid-Down Communications",
+      "slug": "grid-down-communications",
+      "icon": "IconAntenna",
+      "description": "Computing and DIY references for maintaining communications and infrastructure when the grid is down. Compact and fast.",
+      "estimated_size_mb": 500,
+      "category_tiers": [
+        { "category_slug": "computing", "tier_slug": "essential" },
+        { "category_slug": "diy", "tier_slug": "essential" }
+      ],
+      "map_collections": [],
+      "wikipedia_option": null,
+      "recommended_models": ["llama3.2:1b-text-q2_K"]
+    },
+    {
+      "name": "Remote Field Operations",
+      "slug": "remote-field-operations",
+      "icon": "IconMapPin",
+      "description": "Comprehensive content pack for field deployments. All essential knowledge categories, regional maps, and a condensed Wikipedia. Suitable for enterprise and government use.",
+      "estimated_size_mb": 18000,
+      "category_tiers": [
+        { "category_slug": "medicine", "tier_slug": "essential" },
+        { "category_slug": "survival", "tier_slug": "essential" },
+        { "category_slug": "education", "tier_slug": "essential" },
+        { "category_slug": "diy", "tier_slug": "essential" },
+        { "category_slug": "agriculture", "tier_slug": "essential" },
+        { "category_slug": "computing", "tier_slug": "essential" }
+      ],
+      "map_collections": ["pacific", "mountain", "west-south-central"],
+      "wikipedia_option": "all-mini",
+      "recommended_models": ["llama3.1:8b-text-q4_1"]
+    },
+    {
+      "name": "SCIF / Air-Gapped Deployment",
+      "slug": "scif-air-gapped",
+      "icon": "IconShieldLock",
+      "description": "Maximum coverage for classified or air-gapped environments. All comprehensive knowledge categories, full US map coverage, complete Wikipedia, and multiple AI models.",
+      "estimated_size_mb": 150000,
+      "category_tiers": [
+        { "category_slug": "medicine", "tier_slug": "comprehensive" },
+        { "category_slug": "survival", "tier_slug": "comprehensive" },
+        { "category_slug": "education", "tier_slug": "comprehensive" },
+        { "category_slug": "diy", "tier_slug": "comprehensive" },
+        { "category_slug": "agriculture", "tier_slug": "comprehensive" },
+        { "category_slug": "computing", "tier_slug": "comprehensive" }
+      ],
+      "map_collections": [
+        "pacific", "mountain", "west-south-central", "east-south-central",
+        "south-atlantic", "west-north-central", "east-north-central",
+        "mid-atlantic", "new-england"
+      ],
+      "wikipedia_option": "all-maxi",
+      "recommended_models": ["llama3.1:8b-text-q4_1", "deepseek-r1:1.5b"]
+    }
+  ]
+}

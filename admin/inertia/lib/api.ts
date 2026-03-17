@@ -2,15 +2,32 @@ import axios, { AxiosInstance } from 'axios'
 import { ListRemoteZimFilesResponse, ListZimFilesResponse } from '../../types/zim'
 import { ServiceSlim } from '../../types/services'
 import { FileEntry } from '../../types/files'
-import { CheckLatestVersionResult, SystemInformationResponse, SystemUpdateStatus } from '../../types/system'
+import {
+  CheckLatestVersionResult,
+  SystemInformationResponse,
+  SystemUpdateStatus,
+} from '../../types/system'
 import { DownloadJobWithProgress, WikipediaState } from '../../types/downloads'
 import { EmbedJobWithProgress } from '../../types/rag'
-import type { CategoryWithStatus, CollectionWithStatus, ContentUpdateCheckResult, ResourceUpdateInfo } from '../../types/collections'
+import type {
+  CategoryWithStatus,
+  CollectionWithStatus,
+  ContentUpdateCheckResult,
+  ResourceUpdateInfo,
+} from '../../types/collections'
 import { catchInternal } from './util'
 import { NomadOllamaModel, OllamaChatRequest } from '../../types/ollama'
+import { HardwareSummary } from '../../types/hardware'
+import type { BackupImportPreview, BackupImportResult } from '../../types/backup'
+import type { ScenarioPackWithStatus } from '../../types/collections'
 import { ChatResponse, ModelResponse } from 'ollama'
-import BenchmarkResult from '#models/benchmark_result'
-import { BenchmarkType, RunBenchmarkResponse, SubmitBenchmarkResponse, UpdateBuilderTagResponse } from '../../types/benchmark'
+import type BenchmarkResult from '#models/benchmark_result'
+import {
+  BenchmarkType,
+  RunBenchmarkResponse,
+  SubmitBenchmarkResponse,
+  UpdateBuilderTagResponse,
+} from '../../types/benchmark'
 
 class API {
   private client: AxiosInstance
@@ -75,14 +92,20 @@ class API {
     })()
   }
 
-  async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<{
+  async downloadCategoryTier(
+    categorySlug: string,
+    tierSlug: string
+  ): Promise<{
     message: string
     categorySlug: string
     tierSlug: string
     resources: string[] | null
   }> {
     return catchInternal(async () => {
-      const response = await this.client.post('/zim/download-category-tier', { categorySlug, tierSlug })
+      const response = await this.client.post('/zim/download-category-tier', {
+        categorySlug,
+        tierSlug,
+      })
       return response.data
     })()
   }
@@ -154,11 +177,14 @@ class API {
     })()
   }
 
-  async refreshManifests(): Promise<{ success: boolean; changed: Record<string, boolean> } | undefined> {
+  async refreshManifests(): Promise<
+    { success: boolean; changed: Record<string, boolean> } | undefined
+  > {
     return catchInternal(async () => {
-      const response = await this.client.post<{ success: boolean; changed: Record<string, boolean> }>(
-        '/manifests/refresh'
-      )
+      const response = await this.client.post<{
+        success: boolean
+        changed: Record<string, boolean>
+      }>('/manifests/refresh')
       return response.data
     })()
   }
@@ -203,10 +229,9 @@ class API {
 
   async getChatSuggestions(signal?: AbortSignal) {
     return catchInternal(async () => {
-      const response = await this.client.get<{ suggestions: string[] }>(
-        '/chat/suggestions',
-        { signal }
-      )
+      const response = await this.client.get<{ suggestions: string[] }>('/chat/suggestions', {
+        signal,
+      })
       return response.data.suggestions
     })()
   }
@@ -225,7 +250,19 @@ class API {
     })()
   }
 
-  async getAvailableModels(params: { query?: string; recommendedOnly?: boolean; limit?: number; force?: boolean }) {
+  async getHardwareSummary() {
+    return catchInternal(async () => {
+      const response = await this.client.get<HardwareSummary>('/ollama/hardware-summary')
+      return response.data
+    })()
+  }
+
+  async getAvailableModels(params: {
+    query?: string
+    recommendedOnly?: boolean
+    limit?: number
+    force?: boolean
+  }) {
     return catchInternal(async () => {
       const response = await this.client.get<{
         models: NomadOllamaModel[]
@@ -250,11 +287,23 @@ class API {
     signal?: AbortSignal
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
+    // Read the XSRF-TOKEN cookie to include in the header for CSRF protection
+    const xsrfToken = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('XSRF-TOKEN='))
+      ?.split('=')[1]
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (xsrfToken) {
+      headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken)
+    }
+
     const response = await fetch('/api/ollama/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ ...chatRequest, stream: true }),
       signal,
+      credentials: 'same-origin',
     })
 
     if (!response.ok || !response.body) {
@@ -279,15 +328,13 @@ class API {
           let data: any
           try {
             data = JSON.parse(line.slice(6))
-          } catch { continue /* skip malformed chunks */ }
+          } catch {
+            continue /* skip malformed chunks */
+          }
 
-          if (data.error) throw new Error('The model encountered an error. Please try again.')
+          if (data.error) throw new Error(data.message || 'The model encountered an error. Please try again.')
 
-          onChunk(
-            data.message?.content ?? '',
-            data.message?.thinking ?? '',
-            data.done ?? false
-          )
+          onChunk(data.message?.content ?? '', data.message?.thinking ?? '', data.done ?? false)
         }
       }
     } finally {
@@ -297,14 +344,18 @@ class API {
 
   async getBenchmarkResults() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ results: BenchmarkResult[], total: number }>('/benchmark/results')
+      const response = await this.client.get<{ results: BenchmarkResult[]; total: number }>(
+        '/benchmark/results'
+      )
       return response.data
     })()
   }
 
   async getLatestBenchmarkResult() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ result: BenchmarkResult | null }>('/benchmark/results/latest')
+      const response = await this.client.get<{ result: BenchmarkResult | null }>(
+        '/benchmark/results/latest'
+      )
       return response.data
     })()
   }
@@ -409,7 +460,9 @@ class API {
 
   async deleteRAGFile(source: string) {
     return catchInternal(async () => {
-      const response = await this.client.delete<{ message: string }>('/rag/files', { data: { source } })
+      const response = await this.client.delete<{ message: string }>('/rag/files', {
+        data: { source },
+      })
       return response.data
     })()
   }
@@ -463,9 +516,7 @@ class API {
 
   async listCuratedMapCollections() {
     return catchInternal(async () => {
-      const response = await this.client.get<CollectionWithStatus[]>(
-        '/maps/curated-collections'
-      )
+      const response = await this.client.get<CollectionWithStatus[]>('/maps/curated-collections')
       return response.data
     })()
   }
@@ -501,19 +552,39 @@ class API {
     query?: string
   }) {
     return catchInternal(async () => {
-      return await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
+      const response = await this.client.get<ListRemoteZimFilesResponse>('/zim/list-remote', {
         params: {
           start,
           count,
           query,
         },
       })
+      return response.data
     })()
   }
 
   async listZimFiles() {
     return catchInternal(async () => {
-      return await this.client.get<ListZimFilesResponse>('/zim/list')
+      const response = await this.client.get<ListZimFilesResponse>('/zim/list')
+      return response.data
+    })()
+  }
+
+  async deleteZimFile(filename: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        `/zim/${filename}`
+      )
+      return response.data
+    })()
+  }
+
+  async deleteMapFile(filename: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        `/maps/${filename}`
+      )
+      return response.data
     })()
   }
 
@@ -525,11 +596,64 @@ class API {
     })()
   }
 
+  async retryDownloadJob(jobId: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/downloads/jobs/${jobId}/retry`
+      )
+      return response.data
+    })()
+  }
+
+  async cancelDownloadJob(jobId: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/downloads/jobs/${jobId}/cancel`
+      )
+      return response.data
+    })()
+  }
+
+  async updateDownloadJobPriority(jobId: string, priority: number) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        `/downloads/jobs/${jobId}/priority`,
+        { priority }
+      )
+      return response.data
+    })()
+  }
+
+  async pauseDownloadQueue() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/downloads/pause'
+      )
+      return response.data
+    })()
+  }
+
+  async resumeDownloadQueue() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/downloads/resume'
+      )
+      return response.data
+    })()
+  }
+
+  async getDownloadQueueStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ paused: boolean }>('/downloads/queue-status')
+      return response.data
+    })()
+  }
+
   async runBenchmark(type: BenchmarkType, sync: boolean = false) {
     return catchInternal(async () => {
       const response = await this.client.post<RunBenchmarkResponse>(
         `/benchmark/run${sync ? '?sync=true' : ''}`,
-        { benchmark_type: type },
+        { benchmark_type: type }
       )
       return response.data
     })()
@@ -542,23 +666,6 @@ class API {
       )
       return response.data
     })()
-  }
-
-  async submitBenchmark(benchmark_id: string, anonymous: boolean) {
-    try {
-      const response = await this.client.post<SubmitBenchmarkResponse>('/benchmark/submit', { benchmark_id, anonymous })
-      return response.data
-    } catch (error: any) {
-      // For 409 Conflict errors, throw a specific error that the UI can handle
-      if (error.response?.status === 409) {
-        const err = new Error(error.response?.data?.error || 'This benchmark has already been submitted to the repository')
-          ; (err as any).status = 409
-        throw err
-      }
-      // For other errors, extract the message and throw
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to submit benchmark'
-      throw new Error(errorMessage)
-    }
   }
 
   async subscribeToReleaseNotes(email: string) {
@@ -607,10 +714,10 @@ class API {
 
   async updateBuilderTag(benchmark_id: string, builder_tag: string) {
     return catchInternal(async () => {
-      const response = await this.client.post<UpdateBuilderTagResponse>(
-        '/benchmark/builder-tag',
-        { benchmark_id, builder_tag }
-      )
+      const response = await this.client.post<UpdateBuilderTagResponse>('/benchmark/builder-tag', {
+        benchmark_id,
+        builder_tag,
+      })
       return response.data
     })()
   }
@@ -632,12 +739,63 @@ class API {
     })()
   }
 
+  async getScenarioPacks() {
+    return catchInternal(async () => {
+      const response = await this.client.get<ScenarioPackWithStatus[]>('/scenario-packs')
+      return response.data
+    })()
+  }
+
+  async installScenarioPack(slug: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        success: boolean
+        zimDownloadsQueued: number
+        mapDownloadsQueued: number
+        modelsQueued: number
+        wikipediaQueued: boolean
+        errors: string[]
+      }>(`/scenario-packs/${slug}/install`)
+      return response.data
+    })()
+  }
+
+  async exportBackup() {
+    // Direct download — browser handles Content-Disposition
+    window.location.href = '/api/system/backup/export'
+  }
+
+  async previewBackupImport(file: File) {
+    return catchInternal(async () => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await this.client.post<{ success: boolean; preview: BackupImportPreview }>(
+        '/system/backup/preview',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      return response.data
+    })()
+  }
+
+  async importBackup(file: File) {
+    return catchInternal(async () => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await this.client.post<BackupImportResult>(
+        '/system/backup/import',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      return response.data
+    })()
+  }
+
   async getSetting(key: string) {
     return catchInternal(async () => {
-      const response = await this.client.get<{ key: string; value: any }>(
-        '/system/settings',
-        { params: { key } }
-      )
+      const response = await this.client.get<{ key: string; value: any }>('/system/settings', {
+        params: { key },
+      })
       return response.data
     })()
   }

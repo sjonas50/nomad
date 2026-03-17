@@ -1,7 +1,11 @@
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { BenchmarkService } from '#services/benchmark_service'
-import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
+import {
+  runBenchmarkValidator,
+  updateBuilderTagValidator,
+  updateBenchmarkSettingsValidator,
+} from '#validators/benchmark'
 import { RunBenchmarkJob } from '#jobs/run_benchmark_job'
 import type { BenchmarkType } from '../../types/benchmark.js'
 import { randomUUID } from 'node:crypto'
@@ -71,9 +75,7 @@ export default class BenchmarkController {
       success: true,
       job_id: job?.id || benchmarkId,
       benchmark_id: benchmarkId,
-      message: created
-        ? `${benchmarkType} benchmark started`
-        : 'Benchmark job already exists',
+      message: created ? `${benchmarkType} benchmark started` : 'Benchmark job already exists',
     })
   }
 
@@ -165,42 +167,11 @@ export default class BenchmarkController {
   }
 
   /**
-   * Submit benchmark results to central repository
-   */
-  async submit({ request, response }: HttpContext) {
-    const payload = await request.validateUsing(submitBenchmarkValidator)
-    const anonymous = request.input('anonymous') === true || request.input('anonymous') === 'true'
-
-    try {
-      const submitResult = await this.benchmarkService.submitToRepository(payload.benchmark_id, anonymous)
-      return response.send({
-        success: true,
-        repository_id: submitResult.repository_id,
-        percentile: submitResult.percentile,
-      })
-    } catch (error) {
-      // Pass through the status code from the service if available, otherwise default to 400
-      const statusCode = (error as any).statusCode || 400
-      return response.status(statusCode).send({
-        success: false,
-        error: error.message,
-      })
-    }
-  }
-
-  /**
    * Update builder tag for a benchmark result
    */
   async updateBuilderTag({ request, response }: HttpContext) {
-    const benchmarkId = request.input('benchmark_id')
-    const builderTag = request.input('builder_tag')
-
-    if (!benchmarkId) {
-      return response.status(400).send({
-        success: false,
-        error: 'benchmark_id is required',
-      })
-    }
+    const { benchmark_id: benchmarkId, builder_tag: builderTag } =
+      await request.validateUsing(updateBuilderTagValidator)
 
     const result = await this.benchmarkService.getResultById(benchmarkId)
     if (!result) {
@@ -210,17 +181,6 @@ export default class BenchmarkController {
       })
     }
 
-    // Validate builder tag format if provided
-    if (builderTag) {
-      const tagPattern = /^[A-Za-z]+-[A-Za-z]+-\d{4}$/
-      if (!tagPattern.test(builderTag)) {
-        return response.status(400).send({
-          success: false,
-          error: 'Invalid builder tag format. Expected: Word-Word-0000',
-        })
-      }
-    }
-
     result.builder_tag = builderTag || null
     await result.save()
 
@@ -228,14 +188,6 @@ export default class BenchmarkController {
       success: true,
       builder_tag: result.builder_tag,
     })
-  }
-
-  /**
-   * Get comparison stats from central repository
-   */
-  async comparison({}: HttpContext) {
-    const stats = await this.benchmarkService.getComparisonStats()
-    return { stats }
   }
 
   /**
@@ -258,12 +210,12 @@ export default class BenchmarkController {
    */
   async updateSettings({ request, response }: HttpContext) {
     const { default: BenchmarkSetting } = await import('#models/benchmark_setting')
-    const body = request.body()
+    const data = await request.validateUsing(updateBenchmarkSettingsValidator)
 
-    if (body.allow_anonymous_submission !== undefined) {
+    if (data.allow_anonymous_submission !== undefined) {
       await BenchmarkSetting.setValue(
         'allow_anonymous_submission',
-        body.allow_anonymous_submission ? 'true' : 'false'
+        data.allow_anonymous_submission ? 'true' : 'false'
       )
     }
 

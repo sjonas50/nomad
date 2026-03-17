@@ -1,8 +1,5 @@
 import { BaseStylesFile, MapLayer } from '../../types/maps.js'
-import {
-  DownloadRemoteSuccessCallback,
-  FileEntry,
-} from '../../types/files.js'
+import { DownloadRemoteSuccessCallback, FileEntry } from '../../types/files.js'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
 import { extract } from 'tar'
 import env from '#start/env'
@@ -13,7 +10,7 @@ import {
   getFile,
   ensureDirectoryExists,
 } from '../utils/fs.js'
-import { join, resolve, sep } from 'path'
+import { join, resolve, sep } from 'node:path'
 import urlJoin from 'url-join'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import logger from '@adonisjs/core/services/logger'
@@ -191,7 +188,6 @@ export class MapService implements IMapService {
 
     const filepath = join(process.cwd(), this.mapStoragePath, 'pmtiles', filename)
 
-
     // First, ensure base assets are present - regions depend on them
     const baseAssetsExist = await this.ensureBaseAssets()
     if (!baseAssetsExist) {
@@ -203,7 +199,11 @@ export class MapService implements IMapService {
     // Parse resource metadata
     const parsedFilename = CollectionManifestService.parseMapFilename(filename)
     const resourceMetadata = parsedFilename
-      ? { resource_id: parsedFilename.resource_id, version: parsedFilename.version, collection_ref: null }
+      ? {
+          resource_id: parsedFilename.resource_id,
+          version: parsedFilename.version,
+          collection_ref: null,
+        }
       : undefined
 
     // Dispatch background job
@@ -252,7 +252,7 @@ export class MapService implements IMapService {
       }
 
       const contentLength = response.headers['content-length']
-      const size = contentLength ? parseInt(contentLength, 10) : 0
+      const size = contentLength ? Number.parseInt(contentLength, 10) : 0
 
       return { filename, size }
     } catch (error: any) {
@@ -276,11 +276,11 @@ export class MapService implements IMapService {
     const regions = (await this.listRegions()).files
 
     /** If we have the host, use it to build public URLs, otherwise we'll fallback to defaults
-    * This is mainly useful because we need to know what host the user is accessing from in order to
-    * properly generate URLs in the styles file
-    * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
-    * fail to load.
-    */
+     * This is mainly useful because we need to know what host the user is accessing from in order to
+     * properly generate URLs in the styles file
+     * e.g. user is accessing from "example.com", but we would by default generate "localhost:8080/..." so maps would
+     * fail to load.
+     */
     const sources = this.generateSourcesArray(host, regions)
     const baseUrl = this.getPublicFileBaseUrl(host, this.basemapsAssetsDir)
 
@@ -342,7 +342,10 @@ export class MapService implements IMapService {
     return await listDirectoryContentsRecursive(this.baseDirPath)
   }
 
-  private generateSourcesArray(host: string | null, regions: FileEntry[]): BaseStylesFile['sources'][] {
+  private generateSourcesArray(
+    host: string | null,
+    regions: FileEntry[]
+  ): BaseStylesFile['sources'][] {
     const sources: BaseStylesFile['sources'][] = []
     const baseUrl = this.getPublicFileBaseUrl(host, 'pmtiles')
 

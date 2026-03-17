@@ -1,7 +1,7 @@
 import { formatBytes } from '~/lib/util'
 import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import type { CollectionWithStatus } from '../../types/collections'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import { IconCircleCheck } from '@tabler/icons-react'
 
 export interface CuratedCollectionCardProps {

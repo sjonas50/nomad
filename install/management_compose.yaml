@@ -6,31 +6,32 @@ services:
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Enables host.docker.internal on Linux
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
     volumes:
-      - /opt/project-nomad/storage:/app/storage
-      - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
+      - ${NOMAD_ROOT:?}/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
-      - nomad-update-shared:/app/update-shared # Shared volume for update communication
+      - nomad-update-shared:/app/update-shared
     environment:
       - NODE_ENV=production
       - PORT=8080
       - LOG_LEVEL=debug
-      - APP_KEY=replaceme
+      - APP_KEY=${APP_KEY:?}
       - HOST=0.0.0.0
-      - URL=replaceme
+      - URL=http://${NOMAD_IP:-127.0.0.1}:8080
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
-      - DB_PASSWORD=replaceme
+      - DB_PASSWORD=${DB_USER_PASSWORD:?}
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?}
     depends_on:
       mysql:
         condition: service_healthy
@@ -42,30 +43,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  dozzle:
-    image: amir20/dozzle:v10.0
-    container_name: nomad_dozzle
-    restart: unless-stopped
-    ports:
-      - "9999:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Allows Dozzle to read logs from the Host's Docker daemon
-    environment:
-      - DOZZLE_ENABLE_ACTIONS=true # Enables the action buttons (restart, stop, etc.)
-      - DOZZLE_ENABLE_SHELL=true  # Enables web-based shell access
   mysql:
     image: mysql:8.0
     container_name: nomad_mysql
     restart: unless-stopped
-    ports:
-      - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=replaceme
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:?}
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
-      - MYSQL_PASSWORD=replaceme
+      - MYSQL_PASSWORD=${DB_USER_PASSWORD:?}
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql
+      - ${NOMAD_ROOT:?}/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -75,12 +63,11 @@ services:
     image: redis:7-alpine
     container_name: nomad_redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:?}
     volumes:
-      - /opt/project-nomad/redis:/data
+      - ${NOMAD_ROOT:?}/redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -91,17 +78,18 @@ services:
     container_name: nomad_updater
     restart: unless-stopped
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml
-      - nomad-update-shared:/shared # Shared volume for communication with admin container
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${NOMAD_ROOT:?}:/opt/project-nomad
+      - nomad-update-shared:/shared
   disk-collector:
     image: ghcr.io/crosstalk-solutions/project-nomad-disk-collector:latest
     pull_policy: always
     container_name: nomad_disk_collector
     restart: unless-stopped
+    profiles: ["linux"]
     volumes:
-      - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
-      - /opt/project-nomad/storage:/storage
+      - /:/host:ro,rslave
+      - ${NOMAD_ROOT:?}/storage:/storage
 
 volumes:
   nomad-update-shared:

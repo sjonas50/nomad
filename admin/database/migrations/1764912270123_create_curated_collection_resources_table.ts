@@ -6,7 +6,12 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
-      table.string('curated_collection_slug').notNullable().references('slug').inTable('curated_collections').onDelete('CASCADE')
+      table
+        .string('curated_collection_slug')
+        .notNullable()
+        .references('slug')
+        .inTable('curated_collections')
+        .onDelete('CASCADE')
       table.string('title').notNullable()
       table.string('url').notNullable()
       table.text('description').notNullable()

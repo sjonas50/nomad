@@ -15,11 +15,10 @@ const loggerConfig = defineConfig({
       name: env.get('APP_NAME'),
       level: env.get('NODE_ENV') === 'production' ? env.get('LOG_LEVEL') : 'debug', // default to 'debug' in non-production envs
       transport: {
-        targets:
-          targets()
-            .pushIf(!app.inProduction, targets.pretty())
-            .pushIf(app.inProduction, targets.file({ destination: "/app/storage/logs/admin.log" }))
-            .toArray(),
+        targets: targets()
+          .pushIf(!app.inProduction, targets.pretty())
+          .pushIf(app.inProduction, targets.file({ destination: '/app/storage/logs/admin.log' }))
+          .toArray(),
       },
     },
   },
@@ -32,5 +31,5 @@ export default loggerConfig
  * in your application.
  */
 declare module '@adonisjs/core/types' {
-  export interface LoggersList extends InferLoggers<typeof loggerConfig> { }
+  export interface LoggersList extends InferLoggers<typeof loggerConfig> {}
 }

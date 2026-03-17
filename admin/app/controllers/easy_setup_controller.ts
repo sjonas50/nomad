@@ -30,10 +30,11 @@ export default class EasySetupController {
 
   async refreshManifests({}: HttpContext) {
     const manifestService = new CollectionManifestService()
-    const [zimChanged, mapsChanged, wikiChanged] = await Promise.all([
+    const [zimChanged, mapsChanged, wikiChanged, packsChanged] = await Promise.all([
       manifestService.fetchAndCacheSpec('zim_categories'),
       manifestService.fetchAndCacheSpec('maps'),
       manifestService.fetchAndCacheSpec('wikipedia'),
+      manifestService.fetchAndCacheSpec('scenario_packs'),
     ])
 
     return {
@@ -42,6 +43,7 @@ export default class EasySetupController {
         zim_categories: zimChanged,
         maps: mapsChanged,
         wikipedia: wikiChanged,
+        scenario_packs: packsChanged,
       },
     }
   }

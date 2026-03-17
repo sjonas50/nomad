@@ -16,9 +16,9 @@ echo ""
 for container in $containers; do
     echo "Gracefully stopping container: $container"
     if docker stop "$container"; then
-        echo "✓ Successfully stopped $container"
+        echo "+ Successfully stopped $container"
     else
-        echo "✗ Failed to stop $container"
+        echo "x Failed to stop $container"
     fi
     echo ""
 done

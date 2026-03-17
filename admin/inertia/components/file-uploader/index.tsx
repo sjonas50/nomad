@@ -4,7 +4,7 @@ import '@uppy/core/css/style.min.css'
 import '@uppy/dashboard/css/style.min.css'
 import { useUppyEvent } from '@uppy/react'
 import Dashboard from '@uppy/react/dashboard'
-import classNames from 'classnames'
+import classNames from '~/lib/classNames'
 import './index.css' // Custom styles for the uploader
 
 interface FileUploaderProps {

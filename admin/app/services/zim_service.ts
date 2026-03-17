@@ -16,7 +16,7 @@ import {
   listDirectoryContents,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
-import { join, resolve, sep } from 'path'
+import { join, resolve, sep } from 'node:path'
 import { WikipediaOption, WikipediaState } from '../../types/downloads.js'
 import vine from '@vinejs/vine'
 import { wikipediaOptionsFileSchema } from '#validators/curated_collections'
@@ -28,11 +28,12 @@ import { CollectionManifestService } from './collection_manifest_service.js'
 import type { CategoryWithStatus } from '../../types/collections.js'
 
 const ZIM_MIME_TYPES = ['application/x-zim', 'application/x-openzim', 'application/octet-stream']
-const WIKIPEDIA_OPTIONS_URL = 'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
+const WIKIPEDIA_OPTIONS_URL =
+  'https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/collections/wikipedia.json'
 
 @inject()
 export class ZimService {
-  constructor(private dockerService: DockerService) { }
+  constructor(private dockerService: DockerService) {}
 
   async list() {
     const dirPath = join(process.cwd(), ZIM_STORAGE_PATH)
@@ -108,7 +109,7 @@ export class ZimService {
       // downloadLink['href'] will end with .meta4, we need to remove that to get the actual download URL
       const download_url = downloadLink['href'].substring(0, downloadLink['href'].length - 6)
       const file_name = download_url.split('/').pop() || `${entry.title}.zim`
-      const sizeBytes = parseInt(downloadLink['length'], 10)
+      const sizeBytes = Number.parseInt(downloadLink['length'], 10)
 
       return {
         id: entry.id,
@@ -132,7 +133,7 @@ export class ZimService {
 
     return {
       items: withoutExisting,
-      has_more: result.feed.totalResults > start,
+      has_more: result.feed.totalResults > start + count,
       total_count: result.feed.totalResults,
     }
   }
@@ -159,7 +160,11 @@ export class ZimService {
     // Parse resource metadata for the download job
     const parsedFilename = CollectionManifestService.parseZimFilename(filename)
     const resourceMetadata = parsedFilename
-      ? { resource_id: parsedFilename.resource_id, version: parsedFilename.version, collection_ref: null }
+      ? {
+          resource_id: parsedFilename.resource_id,
+          version: parsedFilename.version,
+          collection_ref: null,
+        }
       : undefined
 
     // Dispatch a background download job
@@ -192,7 +197,10 @@ export class ZimService {
 
   async downloadCategoryTier(categorySlug: string, tierSlug: string): Promise<string[] | null> {
     const manifestService = new CollectionManifestService()
-    const spec = await manifestService.getSpecWithFallback<import('../../types/collections.js').ZimCategoriesSpec>('zim_categories')
+    const spec =
+      await manifestService.getSpecWithFallback<
+        import('../../types/collections.js').ZimCategoriesSpec
+      >('zim_categories')
     if (!spec) {
       throw new Error('Could not load ZIM categories spec')
     }
@@ -260,14 +268,11 @@ export class ZimService {
     if (restart) {
       // Check if there are any remaining ZIM download jobs before restarting
       const { QueueService } = await import('./queue_service.js')
-      const queueService = new QueueService()
+      const queueService = QueueService.getInstance()
       const queue = queueService.getQueue('downloads')
 
       // Get all active and waiting jobs
-      const [activeJobs, waitingJobs] = await Promise.all([
-        queue.getActive(),
-        queue.getWaiting(),
-      ])
+      const [activeJobs, waitingJobs] = await Promise.all([queue.getActive(), queue.getWaiting()])
 
       // Filter out completed jobs (progress === 100) to avoid race condition
       // where this job itself is still in the active queue
@@ -285,11 +290,9 @@ export class ZimService {
       } else {
         // Restart KIWIX container to pick up new ZIM file
         logger.info('[ZimService] No more ZIM downloads pending - restarting KIWIX container')
-        await this.dockerService
-          .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
-          .catch((error) => {
-            logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
-          })
+        await this.dockerService.affectContainer(SERVICE_NAMES.KIWIX, 'restart').catch((error) => {
+          logger.error(`[ZimService] Failed to restart KIWIX container:`, error) // Don't stop the download completion, just log the error.
+        })
       }
     }
 
@@ -390,16 +393,18 @@ export class ZimService {
       options,
       currentSelection: selection
         ? {
-          optionId: selection.option_id,
-          status: selection.status,
-          filename: selection.filename,
-          url: selection.url,
-        }
+            optionId: selection.option_id,
+            status: selection.status,
+            filename: selection.filename,
+            url: selection.url,
+          }
         : null,
     }
   }
 
-  async selectWikipedia(optionId: string): Promise<{ success: boolean; jobId?: string; message?: string }> {
+  async selectWikipedia(
+    optionId: string
+  ): Promise<{ success: boolean; jobId?: string; message?: string }> {
     const options = await this.getWikipediaOptions()
     const selectedOption = options.find((opt) => opt.id === optionId)
 
@@ -422,7 +427,9 @@ export class ZimService {
           logger.info(`[ZimService] Deleted Wikipedia file: ${currentSelection.filename}`)
         } catch (error) {
           // File might already be deleted, that's OK
-          logger.warn(`[ZimService] Could not delete Wikipedia file (may already be gone): ${currentSelection.filename}`)
+          logger.warn(
+            `[ZimService] Could not delete Wikipedia file (may already be gone): ${currentSelection.filename}`
+          )
         }
       }
 
@@ -443,11 +450,9 @@ export class ZimService {
       }
 
       // Restart Kiwix to reflect the change
-      await this.dockerService
-        .affectContainer(SERVICE_NAMES.KIWIX, 'restart')
-        .catch((error) => {
-          logger.error(`[ZimService] Failed to restart Kiwix after Wikipedia removal:`, error)
-        })
+      await this.dockerService.affectContainer(SERVICE_NAMES.KIWIX, 'restart').catch((error) => {
+        logger.error(`[ZimService] Failed to restart Kiwix after Wikipedia removal:`, error)
+      })
 
       return { success: true, message: 'Wikipedia removed' }
     }
@@ -533,11 +538,25 @@ export class ZimService {
 
       logger.info(`[ZimService] Wikipedia download completed successfully: ${selection.filename}`)
 
+      // Dispatch embedding job for the Wikipedia ZIM file
+      if (selection.filename) {
+        try {
+          const { EmbedFileJob } = await import('../jobs/embed_file_job.js')
+          await EmbedFileJob.dispatch({
+            fileName: selection.filename,
+            filePath: join(process.cwd(), ZIM_STORAGE_PATH, selection.filename),
+          })
+          logger.info(`[ZimService] Dispatched embedding job for Wikipedia: ${selection.filename}`)
+        } catch (error) {
+          logger.error(`[ZimService] Error dispatching Wikipedia embedding job:`, error)
+        }
+      }
+
       // Delete the old Wikipedia file if it exists and is different
       // We need to find what was previously installed
       const existingFiles = await this.list()
-      const wikipediaFiles = existingFiles.files.filter((f) =>
-        f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
+      const wikipediaFiles = existingFiles.files.filter(
+        (f) => f.name.startsWith('wikipedia_en_') && f.name !== selection.filename
       )
 
       for (const oldFile of wikipediaFiles) {

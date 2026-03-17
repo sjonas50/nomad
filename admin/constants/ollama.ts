@@ -19,7 +19,7 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         context: '128k',
         input: 'Text',
         cloud: false,
-        thinking: false
+        thinking: false,
       },
     ],
   },
@@ -38,7 +38,7 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         context: '128k',
         input: 'Text',
         cloud: false,
-        thinking: true
+        thinking: true,
       },
     ],
   },
@@ -56,7 +56,7 @@ export const FALLBACK_RECOMMENDED_OLLAMA_MODELS: NomadOllamaModel[] = [
         context: '128k',
         input: 'Text',
         cloud: false,
-        thinking: false
+        thinking: false,
       },
     ],
   },
@@ -69,8 +69,8 @@ export const DEFAULT_QUERY_REWRITE_MODEL = 'qwen2.5:3b' // default to qwen2.5 fo
  * Smaller models get overwhelmed with too much context, so we cap it.
  */
 export const RAG_CONTEXT_LIMITS: { maxParams: number; maxResults: number; maxTokens: number }[] = [
-  { maxParams: 3, maxResults: 2, maxTokens: 1000 },   // 1-3B models
-  { maxParams: 8, maxResults: 4, maxTokens: 2500 },   // 4-8B models
+  { maxParams: 3, maxResults: 2, maxTokens: 1000 }, // 1-3B models
+  { maxParams: 8, maxResults: 4, maxTokens: 2500 }, // 4-8B models
   { maxParams: Infinity, maxResults: 5, maxTokens: 0 }, // 13B+ (no cap)
 ]
 
@@ -100,15 +100,19 @@ IMPORTANT INSTRUCTIONS:
 Format your response using markdown for readability.
 `,
   chat_suggestions: `
-You are a helpful assistant that generates conversation starter suggestions for a survivalist/prepper using an AI assistant.
+You are a helpful assistant that generates conversation starter suggestions for a user of an offline AI knowledge system.
+The system is used in a variety of contexts: enterprise deployments, government field operations, remote locations, emergency preparedness, education, and general reference.
 
 Provide exactly 3 conversation starter topics as direct questions that someone would ask.
 These should be clear, complete questions that can start meaningful conversations.
 
 Examples of good suggestions:
 - "How do I purify water in an emergency?"
-- "What are the best foods for long-term storage?"
-- "Help me create a 72-hour emergency kit"
+- "What are common network troubleshooting steps?"
+- "Help me create a field operations checklist"
+- "What are the best practices for data backup?"
+- "Explain how to treat a minor burn injury"
+- "What programming languages are best for beginners?"
 
 Do NOT use:
 - Follow-up questions seeking clarification

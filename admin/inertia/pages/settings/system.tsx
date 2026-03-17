@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Head } from '@inertiajs/react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import { SystemInformationResponse } from '../../../types/system'
@@ -8,12 +8,15 @@ import HorizontalBarChart from '~/components/HorizontalBarChart'
 import InfoCard from '~/components/systeminfo/InfoCard'
 import Alert from '~/components/Alert'
 import StyledModal from '~/components/StyledModal'
+import StyledButton from '~/components/StyledButton'
 import { useSystemInfo } from '~/hooks/useSystemInfo'
 import { useNotifications } from '~/context/NotificationContext'
 import { useModals } from '~/context/ModalContext'
+import useAuth from '~/hooks/useAuth'
 import api from '~/lib/api'
 import StatusCard from '~/components/systeminfo/StatusCard'
 import { IconCpu, IconDatabase, IconServer, IconDeviceDesktop, IconComponents } from '@tabler/icons-react'
+import type { BackupImportPreview } from '../../../types/backup'
 
 export default function SettingsPage(props: {
   system: { info: SystemInformationResponse | undefined }
@@ -23,6 +26,11 @@ export default function SettingsPage(props: {
   })
   const { addNotification } = useNotifications()
   const { openModal, closeAllModals } = useModals()
+  const { isAdmin } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importPreview, setImportPreview] = useState<BackupImportPreview | null>(null)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const [gpuBannerDismissed, setGpuBannerDismissed] = useState(() => {
     try {
@@ -367,6 +375,99 @@ export default function SettingsPage(props: {
               <StatusCard title="Storage Devices" value={storageItems.length} />
             </div>
           </section>
+          {isAdmin && (
+            <section className="mb-12 mt-12">
+              <h2 className="text-2xl font-bold text-desert-green mb-6 flex items-center gap-2">
+                <div className="w-1 h-6 bg-desert-green" />
+                Backup & Restore
+              </h2>
+              <div className="bg-desert-white rounded-lg p-8 border border-desert-stone-light shadow-sm">
+                <p className="text-sm text-gray-600 mb-6">
+                  Export a manifest of all installed content, settings, and users. Import on a fresh
+                  The Attic AI instance to replicate your setup. Content files are re-downloaded from
+                  their original sources.
+                </p>
+                <div className="flex flex-wrap gap-4 items-start">
+                  <StyledButton variant="primary" onClick={() => api.exportBackup()} icon="IconDownload">
+                    Export Backup
+                  </StyledButton>
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setImportFile(file)
+                        try {
+                          const res = await api.previewBackupImport(file)
+                          if (res?.preview) setImportPreview(res.preview)
+                        } catch {
+                          addNotification({ message: 'Failed to parse backup file.', type: 'error' })
+                        }
+                      }}
+                    />
+                    <StyledButton
+                      variant="secondary"
+                      onClick={() => fileInputRef.current?.click()}
+                      icon="IconUpload"
+                    >
+                      Import Backup
+                    </StyledButton>
+                  </div>
+                </div>
+
+                {importPreview && importFile && (
+                  <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <h3 className="font-semibold mb-2">Import Preview</h3>
+                    <ul className="text-sm text-gray-700 space-y-1 mb-4">
+                      <li>{importPreview.resources} content downloads will be queued</li>
+                      <li>{importPreview.settings} settings will be restored</li>
+                      <li>{importPreview.models} AI models will be downloaded</li>
+                      <li>{importPreview.users} users will be created (with temporary passwords)</li>
+                      {importPreview.wikipedia && <li>Wikipedia selection will be restored</li>}
+                    </ul>
+                    <div className="flex gap-3">
+                      <StyledButton
+                        variant="primary"
+                        loading={importing}
+                        onClick={async () => {
+                          setImporting(true)
+                          try {
+                            const result = await api.importBackup(importFile)
+                            if (result) {
+                              addNotification({
+                                message: `Import complete: ${result.resourcesQueued} downloads queued, ${result.settingsRestored} settings restored, ${result.usersCreated} users created.`,
+                                type: result.errors.length > 0 ? 'warning' : 'success',
+                              })
+                            }
+                          } catch {
+                            addNotification({ message: 'Import failed.', type: 'error' })
+                          }
+                          setImporting(false)
+                          setImportPreview(null)
+                          setImportFile(null)
+                        }}
+                      >
+                        Confirm Import
+                      </StyledButton>
+                      <StyledButton
+                        variant="secondary"
+                        onClick={() => {
+                          setImportPreview(null)
+                          setImportFile(null)
+                        }}
+                      >
+                        Cancel
+                      </StyledButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
         </main>
       </div>
     </SettingsLayout>

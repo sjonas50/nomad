@@ -4,11 +4,11 @@ import logger from '@adonisjs/core/services/logger'
 import { inject } from '@adonisjs/core'
 import transmit from '@adonisjs/transmit/services/main'
 import { doResumableDownloadWithRetry } from '../utils/downloads.js'
-import { join } from 'path'
+import { join } from 'node:path'
 import { ZIM_STORAGE_PATH } from '../utils/fs.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 // import { readdir } from 'fs/promises'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
@@ -17,7 +17,7 @@ import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 export class DockerService {
   public docker: Docker
   private activeInstallations: Set<string> = new Set()
-  public static NOMAD_NETWORK = 'project-nomad_default'
+  public static NOMAD_NETWORK = process.env.DOCKER_NETWORK || 'the-attic-ai_default'
 
   constructor() {
     // Support both Linux (production) and Windows (development with Docker Desktop)
@@ -152,7 +152,7 @@ export class DockerService {
     const hostname = process.env.NODE_ENV === 'production' ? serviceName : 'localhost'
 
     // First, check if ui_location is set and is a valid port number
-    if (service.ui_location && parseInt(service.ui_location, 10)) {
+    if (service.ui_location && Number.parseInt(service.ui_location, 10)) {
       return `http://${hostname}:${service.ui_location}`
     }
 
@@ -480,7 +480,9 @@ export class DockerService {
             'gpu-config',
             `AMD GPU detected. ROCm GPU acceleration is not yet supported in this version — proceeding with CPU-only configuration. GPU support for AMD will be available in a future update.`
           )
-          logger.warn('[DockerService] AMD GPU detected but ROCm support is not yet enabled. Using CPU-only configuration.')
+          logger.warn(
+            '[DockerService] AMD GPU detected but ROCm support is not yet enabled. Using CPU-only configuration.'
+          )
           // TODO: Re-enable AMD GPU support once ROCm image and device discovery are validated.
           // When re-enabling:
           //   1. Switch image to 'ollama/ollama:rocm'
@@ -545,17 +547,26 @@ export class DockerService {
 
       // If Ollama was just installed, trigger Nomad docs discovery and embedding
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
-        logger.info('[DockerService] Ollama installation complete. Default behavior is to not enable chat suggestions.')
+        logger.info(
+          '[DockerService] Ollama installation complete. Default behavior is to not enable chat suggestions.'
+        )
         await KVStore.setValue('chat.suggestionsEnabled', false)
 
-        logger.info('[DockerService] Ollama installation complete. Triggering Nomad docs discovery...')
-        
+        logger.info(
+          '[DockerService] Ollama installation complete. Triggering Nomad docs discovery...'
+        )
+
         // Need to use dynamic imports here to avoid circular dependency
         const ollamaService = new (await import('./ollama_service.js')).OllamaService()
         const ragService = new (await import('./rag_service.js')).RagService(this, ollamaService)
 
         ragService.discoverNomadDocs().catch((error) => {
           logger.error('[DockerService] Failed to discover Nomad docs:', error)
+        })
+
+        // Also sync storage to embed any existing ZIM/content files not yet in the knowledge base
+        ragService.scanAndSyncStorage().catch((error) => {
+          logger.error('[DockerService] Failed to sync storage for RAG:', error)
         })
       }
 
@@ -683,7 +694,15 @@ export class DockerService {
    * Primary: Check Docker runtimes via docker.info() (works from inside containers).
    * Fallback: lspci for host-based installs and AMD detection.
    */
-  private async _detectGPUType(): Promise<{ type: 'nvidia' | 'amd' | 'none'; toolkitMissing?: boolean }> {
+  private async _detectGPUType(): Promise<{
+    type: 'nvidia' | 'amd' | 'none'
+    toolkitMissing?: boolean
+  }> {
+    if (process.platform === 'darwin') {
+      logger.info('[DockerService] GPU passthrough not available on macOS')
+      return { type: 'none' }
+    }
+
     try {
       // Primary: Check Docker daemon for nvidia runtime (works from inside containers)
       try {
@@ -694,7 +713,9 @@ export class DockerService {
           return { type: 'nvidia' }
         }
       } catch (error) {
-        logger.warn(`[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`)
+        logger.warn(
+          `[DockerService] Could not query Docker info for GPU runtimes: ${error.message}`
+        )
       }
 
       // Fallback: lspci for host-based installs (not available inside Docker)
@@ -707,7 +728,9 @@ export class DockerService {
         )
         if (nvidiaCheck.trim()) {
           // GPU hardware found but no nvidia runtime — toolkit not installed
-          logger.warn('[DockerService] NVIDIA GPU detected via lspci but NVIDIA Container Toolkit is not installed')
+          logger.warn(
+            '[DockerService] NVIDIA GPU detected via lspci but NVIDIA Container Toolkit is not installed'
+          )
           return { type: 'none', toolkitMissing: true }
         }
       } catch (error) {
@@ -809,7 +832,10 @@ export class DockerService {
         return { success: false, message: `Service ${serviceName} is not installed` }
       }
       if (this.activeInstallations.has(serviceName)) {
-        return { success: false, message: `Service ${serviceName} already has an operation in progress` }
+        return {
+          success: false,
+          message: `Service ${serviceName} already has an operation in progress`,
+        }
       }
 
       this.activeInstallations.add(serviceName)
@@ -889,12 +915,23 @@ export class DockerService {
         newContainer = await this.docker.createContainer(newContainerConfig)
       } catch (createError) {
         // Rollback: rename old container back
-        this._broadcast(serviceName, 'update-rollback', `Failed to create new container: ${createError.message}. Rolling back...`)
-        const rollbackContainer = this.docker.getContainer((await this.docker.listContainers({ all: true })).find((c) => c.Names.includes(`/${oldName}`))!.Id)
+        this._broadcast(
+          serviceName,
+          'update-rollback',
+          `Failed to create new container: ${createError.message}. Rolling back...`
+        )
+        const rollbackContainer = this.docker.getContainer(
+          (await this.docker.listContainers({ all: true })).find((c) =>
+            c.Names.includes(`/${oldName}`)
+          )!.Id
+        )
         await rollbackContainer.rename({ name: serviceName })
         await rollbackContainer.start()
         this.activeInstallations.delete(serviceName)
-        return { success: false, message: `Failed to create updated container: ${createError.message}` }
+        return {
+          success: false,
+          message: `Failed to create updated container: ${createError.message}`,
+        }
       }
 
       // Step 5: Start new container
@@ -962,11 +999,7 @@ export class DockerService {
       }
     } catch (error) {
       this.activeInstallations.delete(serviceName)
-      this._broadcast(
-        serviceName,
-        'update-rollback',
-        `Update failed: ${error.message}`
-      )
+      this._broadcast(serviceName, 'update-rollback', `Update failed: ${error.message}`)
       logger.error(`[DockerService] Update failed for ${serviceName}: ${error.message}`)
       return { success: false, message: `Update failed: ${error.message}` }
     }
