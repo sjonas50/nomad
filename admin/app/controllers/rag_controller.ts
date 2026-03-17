@@ -5,7 +5,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
-import { deleteFileSchema, getJobStatusSchema } from '#validators/rag'
+import { deleteFileSchema, getJobStatusSchema, toggleZimRagSourceSchema } from '#validators/rag'
 
 @inject()
 export default class RagController {
@@ -119,6 +119,20 @@ export default class RagController {
     const result = await this.ragService.deleteFileBySource(source)
     if (!result.success) {
       return response.status(500).json({ error: result.message })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
+  public async getZimRagSources({ response }: HttpContext) {
+    const sources = await this.ragService.getZimRagSources()
+    return response.status(200).json({ sources })
+  }
+
+  public async toggleZimRagSource({ request, response }: HttpContext) {
+    const { id, enabled } = await request.validateUsing(toggleZimRagSourceSchema)
+    const result = await this.ragService.toggleZimRagSource(id, enabled)
+    if (!result.success) {
+      return response.status(404).json({ error: result.message })
     }
     return response.status(200).json({ message: result.message })
   }

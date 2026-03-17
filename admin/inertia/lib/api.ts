@@ -678,6 +678,31 @@ class API {
     })()
   }
 
+  async getZimRagSources() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        sources: Array<{
+          id: number
+          resource_id: string
+          file_path: string
+          rag_enabled: boolean
+          embedded: boolean
+        }>
+      }>('/rag/zim-sources')
+      return response.data.sources
+    })()
+  }
+
+  async toggleZimRagSource(id: number, enabled: boolean) {
+    return catchInternal(async () => {
+      const response = await this.client.patch<{ message: string }>('/rag/zim-sources/toggle', {
+        id,
+        enabled,
+      })
+      return response.data
+    })()
+  }
+
   async syncRAGStorage() {
     return catchInternal(async () => {
       const response = await this.client.post<{

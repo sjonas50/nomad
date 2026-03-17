@@ -29,6 +29,8 @@ import {
   RAGResult,
   RerankedRAGResult,
 } from '../../types/rag.js'
+import InstalledResource from '#models/installed_resource'
+import { EmbedFileJob } from '#jobs/embed_file_job'
 
 @inject()
 export class RagService {
@@ -691,18 +693,83 @@ export class RagService {
   }
 
   /**
+   * Returns file paths of ZIM resources that have RAG disabled.
+   */
+  public async getExcludedZimSources(): Promise<string[]> {
+    const excluded = await InstalledResource.query()
+      .where('resource_type', 'zim')
+      .where('rag_enabled', false)
+    return excluded.map((r) => r.file_path)
+  }
+
+  /**
+   * Returns all ZIM resources with their RAG toggle state and embed status.
+   */
+  public async getZimRagSources(): Promise<
+    Array<{
+      id: number
+      resource_id: string
+      file_path: string
+      rag_enabled: boolean
+      embedded: boolean
+    }>
+  > {
+    const zimResources = await InstalledResource.query().where('resource_type', 'zim')
+    const storedFiles = await this.getStoredFiles()
+
+    return zimResources.map((r) => ({
+      id: r.id,
+      resource_id: r.resource_id,
+      file_path: r.file_path,
+      rag_enabled: r.rag_enabled,
+      embedded: storedFiles.some((f) => f === r.file_path),
+    }))
+  }
+
+  /**
+   * Toggle RAG enabled/disabled for a ZIM resource.
+   * If enabling and not yet embedded, dispatches an EmbedFileJob.
+   */
+  public async toggleZimRagSource(
+    id: number,
+    enabled: boolean
+  ): Promise<{ success: boolean; message: string }> {
+    const resource = await InstalledResource.find(id)
+    if (!resource || resource.resource_type !== 'zim') {
+      return { success: false, message: 'ZIM resource not found' }
+    }
+
+    resource.rag_enabled = enabled
+    await resource.save()
+
+    if (enabled) {
+      const storedFiles = await this.getStoredFiles()
+      const isEmbedded = storedFiles.some((f) => f === resource.file_path)
+      if (!isEmbedded) {
+        const fileName = resource.file_path.split('/').pop() || resource.file_path
+        await EmbedFileJob.dispatch({ filePath: resource.file_path, fileName })
+        return { success: true, message: `RAG enabled and embedding job dispatched for ${fileName}` }
+      }
+    }
+
+    return { success: true, message: `RAG ${enabled ? 'enabled' : 'disabled'} for ${resource.resource_id}` }
+  }
+
+  /**
    * Search for documents similar to the query text in the Qdrant knowledge base.
    * Uses a hybrid approach combining semantic similarity and keyword matching.
    * Implements adaptive thresholds and result reranking for optimal retrieval.
    * @param query - The search query text
    * @param limit - Maximum number of results to return (default: 5)
    * @param scoreThreshold - Minimum similarity score threshold (default: 0.3, much lower than before)
+   * @param excludedSources - Optional list of source paths to exclude from results
    * @returns Array of relevant text chunks with their scores
    */
   public async searchSimilarDocuments(
     query: string,
     limit: number = 5,
-    scoreThreshold: number = 0.3 // Lower default threshold - was 0.7, now 0.3
+    scoreThreshold: number = 0.3,
+    excludedSources?: string[]
   ): Promise<Array<{ text: string; score: number; metadata?: Record<string, any> }>> {
     try {
       logger.debug(`[RAG] Starting similarity search for query: "${query}"`)
@@ -772,11 +839,25 @@ export class RagService {
         `[RAG] Searching for top ${searchLimit} semantic matches (threshold: ${scoreThreshold})`
       )
 
+      // Build optional filter to exclude disabled RAG sources
+      const filter: Record<string, any> | undefined =
+        excludedSources && excludedSources.length > 0
+          ? {
+              must_not: [
+                {
+                  key: 'source',
+                  match: { any: excludedSources },
+                },
+              ],
+            }
+          : undefined
+
       const searchResults = await this.qdrant!.search(RagService.CONTENT_COLLECTION_NAME, {
         vector: response.embeddings[0],
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
+        ...(filter && { filter }),
       })
 
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)

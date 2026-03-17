@@ -11,6 +11,13 @@ export const getJobStatusSchema = vine.compile(
   })
 )
 
+export const toggleZimRagSourceSchema = vine.compile(
+  vine.object({
+    id: vine.number().positive(),
+    enabled: vine.boolean(),
+  })
+)
+
 export const deleteFileSchema = vine.compile(
   vine.object({
     source: vine

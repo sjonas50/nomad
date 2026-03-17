@@ -193,8 +193,17 @@ router
         router.get('/active-jobs', [RagController, 'getActiveJobs'])
         router.get('/job-status', [RagController, 'getJobStatus'])
         router.post('/sync', [RagController, 'scanAndSync'])
+        router.get('/zim-sources', [RagController, 'getZimRagSources'])
       })
       .prefix('/api/rag')
+
+    // RAG API (mutations require operator role)
+    router
+      .group(() => {
+        router.patch('/zim-sources/toggle', [RagController, 'toggleZimRagSource'])
+      })
+      .prefix('/api/rag')
+      .use(middleware.role({ roles: ['operator'] }))
 
     // System API (read-only endpoints available to all authenticated users)
     router

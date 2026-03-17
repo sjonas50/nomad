@@ -4,6 +4,7 @@ import FileUploader from '~/components/file-uploader'
 import StyledButton from '~/components/StyledButton'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledTable from '~/components/StyledTable'
+import Switch from '~/components/inputs/Switch'
 import { useNotifications } from '~/context/NotificationContext'
 import api from '~/lib/api'
 import { IconX } from '@tabler/icons-react'
@@ -65,6 +66,24 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to delete file.' })
       setConfirmDeleteSource(null)
+    },
+  })
+
+  const { data: zimSources = [], isLoading: isLoadingZimSources } = useQuery({
+    queryKey: ['zimRagSources'],
+    queryFn: () => api.getZimRagSources(),
+    select: (data) => data || [],
+  })
+
+  const toggleZimSourceMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
+      api.toggleZimRagSource(id, enabled),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Source toggle updated.' })
+      queryClient.invalidateQueries({ queryKey: ['zimRagSources'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to toggle source.' })
     },
   })
 
@@ -209,6 +228,68 @@ export default function KnowledgeBaseModal({ aiAssistantName = "AI Assistant", o
           <div className="my-8">
             <ActiveEmbedJobs withHeader={true} />
           </div>
+
+          {zimSources.length > 0 && (
+            <div className="my-12">
+              <StyledSectionHeader title="Information Library Sources" className="!mb-4" />
+              <p className="text-sm text-desert-stone mb-4">
+                Control which Information Library sources are included in {aiAssistantName}'s knowledge base search.
+                Disabling a source excludes it from search results without deleting its data.
+              </p>
+              <StyledTable<{
+                id: number
+                resource_id: string
+                file_path: string
+                rag_enabled: boolean
+                embedded: boolean
+              }>
+                rowLines={true}
+                columns={[
+                  {
+                    accessor: 'resource_id',
+                    title: 'Source',
+                    render(record) {
+                      const displayName = record.file_path.split('/').pop() || record.resource_id
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-700 font-medium">{displayName}</span>
+                          {record.rag_enabled && !record.embedded && (
+                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                              embedding...
+                            </span>
+                          )}
+                          {!record.rag_enabled && !record.embedded && (
+                            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                              not embedded
+                            </span>
+                          )}
+                        </div>
+                      )
+                    },
+                  },
+                  {
+                    accessor: 'rag_enabled',
+                    title: 'Include in Search',
+                    render(record) {
+                      return (
+                        <div className="flex justify-end">
+                          <Switch
+                            checked={record.rag_enabled}
+                            onChange={(checked) =>
+                              toggleZimSourceMutation.mutate({ id: record.id, enabled: checked })
+                            }
+                            disabled={toggleZimSourceMutation.isPending}
+                          />
+                        </div>
+                      )
+                    },
+                  },
+                ]}
+                data={zimSources}
+                loading={isLoadingZimSources}
+              />
+            </div>
+          )}
 
           <div className="my-12">
             <div className='flex items-center justify-between mb-6'>

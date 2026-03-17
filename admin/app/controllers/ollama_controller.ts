@@ -64,10 +64,14 @@ export default class OllamaController {
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       if (rewrittenQuery) {
+        // Fetch excluded ZIM sources to filter from RAG results
+        const excludedSources = await this.ragService.getExcludedZimSources()
+
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
-          0.3 // Minimum similarity score of 0.3
+          0.3, // Minimum similarity score of 0.3
+          excludedSources.length > 0 ? excludedSources : undefined
         )
 
         logger.debug(
